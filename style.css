@@ -168,6 +168,7 @@ button:hover { background: #a0001f; }
   grid-template-rows: 52px 52px;
   gap: 6px;
   pointer-events: none;
+  z-index: 10;
 }
 
 #touch-controls > div {

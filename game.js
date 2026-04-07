@@ -1309,15 +1309,15 @@ overlayBtn.textContent   = 'Start';
 updateHighscoreBox();
 overlay.classList.remove('hidden');
 
-// ── Debug toggle op startscherm ───────────────────────────────────────────────
+// ── Debug toggle (klein, rechtsboven in het venster) ─────────────────────────
 const debugToggleEl = document.createElement('div');
-debugToggleEl.style.cssText = 'margin-top:10px;font-size:13px;cursor:pointer;opacity:0.6;';
+debugToggleEl.style.cssText = 'position:absolute;top:36px;right:6px;font-size:11px;font-family:monospace;cursor:pointer;background:rgba(0,0,0,0.5);color:#aaa;padding:2px 6px;border-radius:4px;z-index:20;user-select:none;';
 function updateDebugToggleLabel() {
-  debugToggleEl.textContent = `Debug: ${DEBUG ? 'AAN' : 'UIT'}`;
+  debugToggleEl.textContent = `dbg: ${DEBUG ? 'AAN' : 'UIT'}`;
 }
 updateDebugToggleLabel();
 debugToggleEl.addEventListener('click', () => {
   DEBUG = !DEBUG;
   updateDebugToggleLabel();
 });
-overlay.appendChild(debugToggleEl);
+document.getElementById('ui').appendChild(debugToggleEl);
