@@ -34,7 +34,7 @@ const CONFIG = {
   thermosSpeed:    200,   // projectielsnelheid thermos
 
   // Upgrades
-  hpUpgrade:       30,    // Max HP +X per upgrade
+  hpUpgrade:       15,    // Max HP +X per upgrade
   speedUpgrade:    1.1,   // snelheid ×X per upgrade
   healUpgrade:     40,    // herstel X HP per upgrade
 
@@ -57,7 +57,7 @@ const CONFIG = {
 
 // ─── Sound & Highscore ───────────────────────────────────────────────────────
 let soundEnabled = true;
-const DEBUG = false;
+let DEBUG = false;
 
 function loadHighscore() {
   return {
@@ -274,6 +274,14 @@ const keys = {};
 window.addEventListener('keydown', e => { keys[e.key] = true; });
 window.addEventListener('keyup',   e => { keys[e.key] = false; });
 
+// Touch controls: simuleer key states via data-key attribuut
+document.querySelectorAll('#touch-controls > div').forEach(btn => {
+  const key = btn.dataset.key;
+  btn.addEventListener('touchstart', e => { e.preventDefault(); keys[key] = true;  }, { passive: false });
+  btn.addEventListener('touchend',   e => { e.preventDefault(); keys[key] = false; }, { passive: false });
+  btn.addEventListener('touchcancel',e => { e.preventDefault(); keys[key] = false; }, { passive: false });
+});
+
 function startMusic() {
   if (!soundEnabled) return;
   if (MUSIC_TRACKS.main.paused && MUSIC_TRACKS.jazz.paused) {
@@ -404,7 +412,7 @@ function buildUpgradePool() {
     }
   }
   // Stat upgrades
-  pool.push({ weaponId: null, name: 'Max HP +30',     desc: 'Meer uithoudingsvermogen.',
+  pool.push({ weaponId: null, name: 'Max HP +15',     desc: 'Meer uithoudingsvermogen.',
     apply: () => { player.maxHp += CONFIG.hpUpgrade; player.hp = Math.min(player.hp + CONFIG.hpUpgrade, player.maxHp); } });
   pool.push({ weaponId: null, name: 'Snellere benen', desc: 'Loop 10% sneller.',
     apply: () => { player.speed *= CONFIG.speedUpgrade; } });
@@ -1300,3 +1308,16 @@ overlayMsg.innerHTML     = 'Overleef golven van boze ganzen!<br>Beweeg met WASD 
 overlayBtn.textContent   = 'Start';
 updateHighscoreBox();
 overlay.classList.remove('hidden');
+
+// ── Debug toggle op startscherm ───────────────────────────────────────────────
+const debugToggleEl = document.createElement('div');
+debugToggleEl.style.cssText = 'margin-top:10px;font-size:13px;cursor:pointer;opacity:0.6;';
+function updateDebugToggleLabel() {
+  debugToggleEl.textContent = `Debug: ${DEBUG ? 'AAN' : 'UIT'}`;
+}
+updateDebugToggleLabel();
+debugToggleEl.addEventListener('click', () => {
+  DEBUG = !DEBUG;
+  updateDebugToggleLabel();
+});
+overlay.appendChild(debugToggleEl);
