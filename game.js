@@ -274,12 +274,20 @@ const keys = {};
 window.addEventListener('keydown', e => { keys[e.key] = true; });
 window.addEventListener('keyup',   e => { keys[e.key] = false; });
 
-// Touch controls: simuleer key states via data-key attribuut
+// Touch controls: pointer events voor betrouwbare cross-device input
+const KEY_MAP = {
+  ArrowUp:    ['ArrowUp',    'w', 'W'],
+  ArrowDown:  ['ArrowDown',  's', 'S'],
+  ArrowLeft:  ['ArrowLeft',  'a', 'A'],
+  ArrowRight: ['ArrowRight', 'd', 'D'],
+};
 document.querySelectorAll('#touch-controls > div').forEach(btn => {
-  const key = btn.dataset.key;
-  btn.addEventListener('touchstart', e => { e.preventDefault(); keys[key] = true;  }, { passive: false });
-  btn.addEventListener('touchend',   e => { e.preventDefault(); keys[key] = false; }, { passive: false });
-  btn.addEventListener('touchcancel',e => { e.preventDefault(); keys[key] = false; }, { passive: false });
+  const mappedKeys = KEY_MAP[btn.dataset.key] || [btn.dataset.key];
+  const setKeys = val => mappedKeys.forEach(k => { keys[k] = val; });
+  btn.addEventListener('pointerdown',   e => { e.preventDefault(); btn.setPointerCapture(e.pointerId); setKeys(true);  });
+  btn.addEventListener('pointerup',     e => { e.preventDefault(); setKeys(false); });
+  btn.addEventListener('pointercancel', e => { e.preventDefault(); setKeys(false); });
+  btn.addEventListener('pointerleave',  e => { e.preventDefault(); setKeys(false); });
 });
 
 function startMusic() {

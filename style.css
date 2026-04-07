@@ -160,32 +160,32 @@ button:hover { background: #a0001f; }
 
 /* Touch controls (mobiel) */
 #touch-controls {
-  position: absolute;
-  bottom: 16px;
-  left: 16px;
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
   display: grid;
-  grid-template-columns: 52px 52px 52px;
-  grid-template-rows: 52px 52px;
-  gap: 6px;
-  pointer-events: none;
-  z-index: 10;
+  grid-template-columns: 60px 60px 60px;
+  grid-template-rows: 60px 60px;
+  gap: 8px;
+  z-index: 1000;
+  touch-action: none;
 }
 
 #touch-controls > div {
   display: flex;
   justify-content: center;
   align-items: center;
-  font-size: 22px;
-  background: rgba(255, 255, 255, 0.15);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 10px;
+  font-size: 26px;
+  background: rgba(255, 255, 255, 0.25);
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  border-radius: 12px;
   cursor: pointer;
   user-select: none;
-  pointer-events: all;
   touch-action: none;
+  -webkit-user-select: none;
 }
 
-#touch-controls > div:active { background: rgba(255, 255, 255, 0.35); }
+#touch-controls > div:active { background: rgba(255, 255, 255, 0.5); }
 
 #touch-up    { grid-column: 2; grid-row: 1; }
 #touch-left  { grid-column: 1; grid-row: 2; }
