@@ -274,21 +274,36 @@ const keys = {};
 window.addEventListener('keydown', e => { keys[e.key] = true; });
 window.addEventListener('keyup',   e => { keys[e.key] = false; });
 
-// Touch controls: pointer events voor betrouwbare cross-device input
-const KEY_MAP = {
-  ArrowUp:    ['ArrowUp',    'w', 'W'],
-  ArrowDown:  ['ArrowDown',  's', 'S'],
-  ArrowLeft:  ['ArrowLeft',  'a', 'A'],
-  ArrowRight: ['ArrowRight', 'd', 'D'],
+// D-pad: één cirkel-element, richting bepaald door positie t.o.v. middelpunt
+const dpad = document.getElementById('dpad');
+const DPAD_KEYS = {
+  up:    ['ArrowUp',    'w', 'W'],
+  down:  ['ArrowDown',  's', 'S'],
+  left:  ['ArrowLeft',  'a', 'A'],
+  right: ['ArrowRight', 'd', 'D'],
 };
-document.querySelectorAll('#touch-controls > div').forEach(btn => {
-  const mappedKeys = KEY_MAP[btn.dataset.key] || [btn.dataset.key];
-  const setKeys = val => mappedKeys.forEach(k => { keys[k] = val; });
-  btn.addEventListener('pointerdown',   e => { e.preventDefault(); btn.setPointerCapture(e.pointerId); setKeys(true);  });
-  btn.addEventListener('pointerup',     e => { e.preventDefault(); setKeys(false); });
-  btn.addEventListener('pointercancel', e => { e.preventDefault(); setKeys(false); });
-  btn.addEventListener('pointerleave',  e => { e.preventDefault(); setKeys(false); });
-});
+const dpadActive = new Set();
+
+function dpadClear() {
+  dpadActive.forEach(k => { keys[k] = false; });
+  dpadActive.clear();
+}
+
+function dpadUpdate(e) {
+  const r   = dpad.getBoundingClientRect();
+  const dx  = e.clientX - (r.left + r.width  / 2);
+  const dy  = e.clientY - (r.top  + r.height / 2);
+  dpadClear();
+  const dir = Math.abs(dx) > Math.abs(dy)
+    ? (dx > 0 ? 'right' : 'left')
+    : (dy > 0 ? 'down'  : 'up');
+  DPAD_KEYS[dir].forEach(k => { keys[k] = true; dpadActive.add(k); });
+}
+
+dpad.addEventListener('pointerdown',   e => { e.preventDefault(); dpad.setPointerCapture(e.pointerId); dpadUpdate(e); });
+dpad.addEventListener('pointermove',   e => { if (e.buttons) dpadUpdate(e); });
+dpad.addEventListener('pointerup',     e => { e.preventDefault(); dpadClear(); });
+dpad.addEventListener('pointercancel', e => { e.preventDefault(); dpadClear(); });
 
 function startMusic() {
   if (!soundEnabled) return;
