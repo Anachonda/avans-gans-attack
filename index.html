@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Avans Gans Attack</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="ui">
+    <div id="hud">
+      <span id="hp-display">HP: <span id="hp">100</span></span>
+      <span id="wave-display">Wave: <span id="wave">1</span></span>
+      <span id="timer-display">Tijd: <span id="timer">0</span>s</span>
+    </div>
+    <canvas id="game-canvas"></canvas>
+    <div id="overlay" class="hidden">
+      <div id="overlay-box">
+        <img id="start-img" src="Pics/AvansGAnsAttack2.png" alt="Avans Gans Attack" />
+        <h1 id="overlay-title">Avans Gans Attack</h1>
+        <p id="overlay-message">Survive as long as you can!</p>
+        <div id="highscore-box"></div>
+        <button id="overlay-btn">Start</button>
+        <button id="sound-toggle">Geluid: AAN</button>
+      </div>
+    </div>
+    <div id="level-up-panel" class="hidden">
+      <h2 id="wave-complete-title">Wave voltooid!</h2>
+      <div id="upgrade-options"></div>
+    </div>
+  </div>
+  <script src="game.js"></script>
+</body>
+</html>

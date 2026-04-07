@@ -1,0 +1,1299 @@
+// ─── Config ──────────────────────────────────────────────────────────────────
+const CONFIG = {
+  // Player
+  playerSpeed:     180,
+  playerHp:        100,
+  playerRadius:    14,
+  playerIframes:   0.6,   // invincibiliteit in seconden na een treffer
+  contactDamage:   10,    // schade bij aanraking met gans
+
+  // Enemy
+  enemyBaseHp:     3,
+  enemyBaseSpeed:  70,
+  enemySlowFactor: 0.4,   // snelheidsmultiplier bij thermos-slow
+  maxEnemyRadius:  45,    // max vijand-radius zodat geen enkele gans vastzit in smalle doorgangen
+  maxEnemies:      80,    // safety cap: max totaal aantal enemies tegelijk
+  maxBossProj:     12,    // safety cap: max boss-projectielen tegelijk
+
+  // Wereld
+  mapWidth:  1600,
+  mapHeight: 1200,
+
+  // Wave pauze
+  waveBreakDuration: 1.0,   // seconden pauze na het verslaan van alle vijanden
+
+  // Spawn afstand (pixels van de speler)
+  spawnMinDist: 450,   // minimaal net buiten het zichtbare scherm
+  spawnMaxDist: 650,   // maximaal iets verder
+
+  // Enemy separation
+  separationDist:  28,    // afstand waaronder ganzen elkaar wegduwen (pixels)
+  separationStr:   60,    // kracht van de wegduw (pixels/s)
+
+  // Wapens (losse waarden die niet in WEAPON_DEFS staan)
+  thermosSpeed:    200,   // projectielsnelheid thermos
+
+  // Upgrades
+  hpUpgrade:       30,    // Max HP +X per upgrade
+  speedUpgrade:    1.1,   // snelheid ×X per upgrade
+  healUpgrade:     40,    // herstel X HP per upgrade
+
+  // Audio volumes (0.0 – 1.0)
+  volumeMusic:     0.2,
+  volumeAuw:       1.0,
+  volumeVerlies:       1.0,
+  volumeGanzenwinnen:  1.0,
+  volumeParasol:   1.0,
+  volumeGum:       1.0,
+  volumeGans:      1.0,
+  volumeBoek:      0.5,
+  volumePasser:    1.0,
+  volumeLineaal:   1.0,
+  volumeRugzak:    1.0,
+  volumeThermos:   1.0,
+  volumeBaasgans:  1.0,
+  volumeGanspoep:  1.0,
+};
+
+// ─── Sound & Highscore ───────────────────────────────────────────────────────
+let soundEnabled = true;
+
+function loadHighscore() {
+  return {
+    wave: parseInt(localStorage.getItem('hs_wave') || '0'),
+    time: parseInt(localStorage.getItem('hs_time') || '0'),
+  };
+}
+function saveHighscore(w, t) {
+  const hs = loadHighscore();
+  if (w > hs.wave) localStorage.setItem('hs_wave', w);
+  if (t > hs.time) localStorage.setItem('hs_time', t);
+}
+function updateHighscoreBox() {
+  const hs = loadHighscore();
+  const box = document.getElementById('highscore-box');
+  box.textContent = hs.wave > 0
+    ? `Beste wave: ${hs.wave}  |  Beste tijd: ${hs.time}s`
+    : '';
+}
+
+// ─── Constants ───────────────────────────────────────────────────────────────
+const CANVAS_W = 800;
+const CANVAS_H = 600;
+
+// ─── Audio ───────────────────────────────────────────────────────────────────
+const MUSIC_TRACKS = {
+  main: new Audio('Sounds/Kwakkwak1.mp3'),
+  jazz: new Audio('Sounds/Kwakkwakjazz.mp3'),
+};
+Object.values(MUSIC_TRACKS).forEach(t => { t.volume = CONFIG.volumeMusic; });
+
+let musicPlayCount = 0;  // telt hoe vaak 'main' gespeeld is
+MUSIC_TRACKS.main.addEventListener('ended', () => {
+  musicPlayCount++;
+  if (musicPlayCount >= 3) { musicPlayCount = 0; MUSIC_TRACKS.jazz.play(); }
+  else { MUSIC_TRACKS.main.play(); }
+});
+MUSIC_TRACKS.jazz.addEventListener('ended', () => { MUSIC_TRACKS.main.play(); });
+
+const sfxAuw          = new Audio('Sounds/Auw.wav');
+const sfxVerlies      = new Audio('Sounds/Verlies.wav');
+const sfxGanzenwinnen = new Audio('Sounds/Ganzenwinnen.wav');
+sfxAuw.volume          = CONFIG.volumeAuw;
+sfxVerlies.volume      = CONFIG.volumeVerlies;
+sfxGanzenwinnen.volume = CONFIG.volumeGanzenwinnen;
+const sfxParasol = new Audio('Sounds/Paraplu.wav');
+const sfxGum     = new Audio('Sounds/Gum.wav');
+const sfxGans    = new Audio('Sounds/Gans.wav');
+const sfxBoek    = new Audio('Sounds/Boek.wav');
+const sfxPasser  = new Audio('Sounds/Passer1.wav');
+const sfxLiniaal = new Audio('Sounds/Lineaal.wav');
+const sfxRugzak  = new Audio('Sounds/Rugzak.wav');
+const sfxThermos = new Audio('Sounds/Thermos.wav');
+sfxParasol.volume = CONFIG.volumeParasol;
+sfxGum.volume     = CONFIG.volumeGum;
+sfxGans.volume    = CONFIG.volumeGans;
+sfxBoek.volume    = CONFIG.volumeBoek;
+sfxPasser.volume  = CONFIG.volumePasser;
+sfxLiniaal.volume = CONFIG.volumeLineaal;
+sfxRugzak.volume  = CONFIG.volumeRugzak;
+sfxThermos.volume = CONFIG.volumeThermos;
+const sfxBaasgans = new Audio('Sounds/Baasgans.wav');
+const sfxGanspoep = new Audio('Sounds/Ganspoep.mp3');
+sfxBaasgans.volume = CONFIG.volumeBaasgans;
+sfxGanspoep.volume = CONFIG.volumeGanspoep;
+function playSound(sfx) {
+  if (!soundEnabled) return;
+  const clone = sfx.cloneNode();
+  clone.volume = sfx.volume;
+  clone.playbackRate = 0.95 + Math.random() * 0.1;
+  clone.play();
+}
+
+const WEAPON_SFX = { parasol: sfxParasol, gum: sfxGum, gans: sfxGans,
+                     boek: sfxBoek, passer: sfxPasser, liniaal: sfxLiniaal,
+                     rugzak: sfxRugzak, thermos: sfxThermos };
+function playSfx(id) { if (WEAPON_SFX[id]) playSound(WEAPON_SFX[id]); }
+
+// Subtle timing jitter (±4%) to make weapon cadence feel organic
+function jitter(t) { return t * (0.98 + Math.random() * 0.04); }
+
+// ─── Setup ───────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('game-canvas');
+const ctx    = canvas.getContext('2d');
+canvas.width  = CANVAS_W;
+canvas.height = CANVAS_H;
+
+const elHP             = document.getElementById('hp');
+const elWave           = document.getElementById('wave');
+const elTimer          = document.getElementById('timer');
+const overlay          = document.getElementById('overlay');
+const overlayTitle     = document.getElementById('overlay-title');
+const overlayMsg       = document.getElementById('overlay-message');
+const overlayBtn       = document.getElementById('overlay-btn');
+const levelPanel       = document.getElementById('level-up-panel');
+const waveCompleteTitle = document.getElementById('wave-complete-title');
+const upgradeOpts      = document.getElementById('upgrade-options');
+
+// ─── Enemy types ─────────────────────────────────────────────────────────────
+const ENEMY_TYPES = {
+  normal: { hpMult: 1.0, speedMult: 1.0, sizeMult: 1.0,  color: null,      ignoresObstacles: false },
+  tank:   { hpMult: 3.5, speedMult: 0.6, sizeMult: 1.5,  color: '#8d6e14', ignoresObstacles: false },
+  flyer:    { hpMult: 0.7, speedMult: 1.4,  sizeMult: 0.85, color: '#9b59b6', ignoresObstacles: true  },
+  bossGoose:{ hpMult: 4,   speedMult: 1.5,  sizeMult: 2.6,  color: '#8B0000', ignoresObstacles: false },
+};
+
+// ─── Weapon definitions ───────────────────────────────────────────────────────
+// Each weapon has levels 1-5. Stats are arrays indexed by (level - 1).
+const WEAPON_DEFS = {
+  parasol: {
+    label: 'Parasol',
+    maxLevel: 5,
+    // [reach, arc, dmg, rate, special]
+    reach:  [75,  82,  90,  98, 110],
+    arc:    [0.8, 0.9, 1.0, 1.2, 1.5].map(x => x * Math.PI),
+    dmg:    [3,   4,   6,   7,   9],
+    rate:   [0.55,0.7, 0.85,1.0, 1.2],
+    double: [false,false,false,false,true],  // level 5: double swing
+  },
+  boek: {
+    label: 'Boekenworp',
+    maxLevel: 5,
+    dmg:      [2, 3, 5, 7, 10],
+    rate:     [0.4, 0.55, 0.7, 0.9, 1.1],
+    piercing: [false, false, true, true, true],
+    speed:    [300, 320, 340, 360, 400],
+  },
+  passer: {
+    label: 'Passer',
+    maxLevel: 5,
+    dmg:      [2, 3, 5, 7, 9],
+    reach:    [70, 80, 90, 100, 115],
+    interval: [4, 3.2, 2.5, 2.0, 1.4],
+  },
+  gum: {
+    label: 'Gum',
+    maxLevel: 5,
+    dmg:      [1, 1, 2, 2, 3],
+    rate:     [0.7, 1.0, 1.5, 2.2, 3.8],
+    bounces:  [0, 1, 1, 2, 3],
+    speed:    [350, 370, 390, 410, 440],
+  },
+  thermos: {
+    label: 'Thermosbeker',
+    maxLevel: 5,
+    dmg:      [2, 3, 4, 6, 8],
+    rate:     [0.35, 0.5, 0.65, 0.8, 1.0],
+    slow:     [3, 3, 4, 4, 5],
+    splash:   [false, false, false, true, true],
+    splashR:  [0, 0, 0, 40, 55],
+  },
+  liniaal: {
+    label: 'Liniaal',
+    maxLevel: 5,
+    dmg:      [5, 7, 9, 12, 16],
+    rate:     [0.6, 0.75, 0.9, 1.1, 1.3],
+    length:   [120, 140, 160, 190, 220],
+    width:    [10, 12, 14, 17, 22],
+  },
+  rugzak: {
+    label: 'Rugzak smijten',
+    maxLevel: 5,
+    dmg:      [4, 6, 8, 10, 14],
+    rate:     [0.25, 0.35, 0.45, 0.55, 0.65],
+    splashR:  [35, 42, 50, 60, 75],
+    speed:    [160, 170, 180, 195, 210],
+  },
+};
+
+// ─── State ───────────────────────────────────────────────────────────────────
+let state       = 'idle';
+let lastTime    = 0;
+let elapsed     = 0;
+let wave        = 1;
+let wavePhase          = 'fighting';
+let waveMessage        = null;
+let betweenWavesTimer  = 0;
+let graceTimer         = 0;   // seconden waarbij vijanden op gereduceerde snelheid bewegen
+
+const player = {
+  x: CANVAS_W / 2, y: CANVAS_H / 2,
+  r: CONFIG.playerRadius,
+  hp: CONFIG.playerHp, maxHp: CONFIG.playerHp,
+  speed: CONFIG.playerSpeed,
+  facingAngle: 0,
+  invincible: 0,
+  vx: 0, vy: 0,   // bewegingsrichting voor boss-intercept
+
+  // Active weapons: weaponId -> level (1-based)
+  weapons: { parasol: 1 },
+
+  // Per-weapon cooldowns / active state
+  cooldowns: {},
+  swing:     null,   // parasol swing { angle, progress, duration, hitSet }
+  spinSwing: null,   // passer spin   { progress, duration, hitSet }
+  liniaalFlash: null, // { angle, progress, duration, hitSet }
+};
+
+const camera    = { x: 0, y: 0 };
+const obstacles = [
+  { x: 300,  y: 200,  w: 160, h: 30  },
+  { x: 700,  y: 380,  w: 30,  h: 180 },
+  { x: 1050, y: 280,  w: 120, h: 120 },
+  { x: 480,  y: 680,  w: 220, h: 30  },
+  { x: 1280, y: 750,  w: 30,  h: 220 },
+];
+let enemies     = [];
+let projectiles = [];  // { type, x, y, vx, vy, r, dmg, angle, bounces, pierced, slowDur, splashR }
+let particles   = [];
+let deathEffects = [];  // { x, y, r, maxR, life, maxLife }
+let pickups      = [];  // { x, y, type, healAmt }
+
+const keys = {};
+window.addEventListener('keydown', e => { keys[e.key] = true; });
+window.addEventListener('keyup',   e => { keys[e.key] = false; });
+
+function startMusic() {
+  if (!soundEnabled) return;
+  if (MUSIC_TRACKS.main.paused && MUSIC_TRACKS.jazz.paused) {
+    MUSIC_TRACKS.main.play();
+  }
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+function rand(min, max) { return min + Math.random() * (max - min); }
+
+function getNearestEnemy() {
+  let best = null, bestD = Infinity;
+  for (const e of enemies) {
+    const d = Math.hypot(e.x - player.x, e.y - player.y);
+    if (d < bestD) { bestD = d; best = e; }
+  }
+  return best;
+}
+
+function getFarthestEnemy() {
+  let best = null, bestD = -Infinity;
+  for (const e of enemies) {
+    const d = Math.hypot(e.x - player.x, e.y - player.y);
+    if (d > bestD) { bestD = d; best = e; }
+  }
+  return best;
+}
+
+function wlvl(weaponId) {
+  return (player.weapons[weaponId] || 1) - 1; // 0-based index into stat arrays
+}
+
+function collidesWithObstacles(x, y, r) {
+  for (const o of obstacles) {
+    const cx = Math.max(o.x, Math.min(o.x + o.w, x));
+    const cy = Math.max(o.y, Math.min(o.y + o.h, y));
+    if (Math.hypot(cx - x, cy - y) < r) return true;
+  }
+  return false;
+}
+
+function spawnParticles(x, y, color, count = 6) {
+  for (let i = 0; i < count; i++) {
+    const angle = rand(0, Math.PI * 2);
+    const speed = rand(40, 130);
+    const p = { x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+                r: rand(2, 5), life: rand(0.3, 0.7), color };
+    p.maxLife = p.life;
+    particles.push(p);
+  }
+}
+
+function spawnOneEnemy(waveNum, safeAngle, halfForbidden, allowedArc, type) {
+  let x, y, tries = 0;
+  do {
+    const angle = safeAngle + halfForbidden + rand(0, allowedArc);
+    const dist  = rand(CONFIG.spawnMinDist, CONFIG.spawnMaxDist);
+    x = Math.max(20, Math.min(CONFIG.mapWidth  - 20, player.x + Math.cos(angle) * dist));
+    y = Math.max(20, Math.min(CONFIG.mapHeight - 20, player.y + Math.sin(angle) * dist));
+    tries++;
+  } while (collidesWithObstacles(x, y, 15) && tries < 10);
+  const tier = Math.floor(Math.random() * waveNum);
+  const tDef = ENEMY_TYPES[type];
+  const hpMult = type === 'bossGoose' ? 3 + waveNum / 5 : tDef.hpMult;
+  const baseHp = Math.ceil((CONFIG.enemyBaseHp + tier * 2) * hpMult);
+  const extra = type === 'bossGoose' ? { shootTimer: 3.0, telegraphTimer: 0 } : {};
+  if (enemies.length >= CONFIG.maxEnemies) return;  // safety cap
+  enemies.push({ x, y,
+    r: Math.min((11 + tier * 1.5) * tDef.sizeMult, CONFIG.maxEnemyRadius),
+    hp: baseHp, maxHp: baseHp,
+    speed: (CONFIG.enemyBaseSpeed + Math.sqrt(tier) * 25 + rand(0, 20)) * tDef.speedMult,
+    tier, type,
+    slowTimer: 0, hitTimer: 0, kbx: 0, kby: 0,
+    ...extra,
+  });
+}
+
+function spawnEnemiesForWave(waveNum) {
+  const isBossWave = waveNum % 5 === 0;
+  graceTimer = isBossWave ? 1.5 : 1.0;
+
+  // Kies de safe sector richting de meeste open ruimte (weg van de dichtstbijzijnde kaartrand).
+  const margins = [
+    { angle: Math.PI,      dist: player.x },
+    { angle: 0,            dist: CONFIG.mapWidth  - player.x },
+    { angle: Math.PI / 2,  dist: CONFIG.mapHeight - player.y },
+    { angle: -Math.PI / 2, dist: player.y },
+  ];
+  margins.sort((a, b) => b.dist - a.dist);
+  const safeAngle     = margins[0].angle + rand(-Math.PI / 6, Math.PI / 6);
+  const halfForbidden = Math.min(Math.PI * 4 / 9, Math.PI / 3 + (waveNum - 1) * 0.018);
+  const allowedArc    = Math.PI * 2 - halfForbidden * 2;
+
+  if (isBossWave) {
+    const bossCount = waveNum / 5;
+    for (let b = 0; b < bossCount; b++)
+      spawnOneEnemy(waveNum, safeAngle, halfForbidden, allowedArc, 'bossGoose');
+    playSound(sfxBaasgans);
+    waveMessage = { text: 'ALARM: ALPHA-MALE!', timer: 1.5 };
+    const extraCount = Math.max(1, Math.floor(waveNum * 0.4));
+    for (let i = 0; i < extraCount; i++) {
+      const typePool = ['normal', ...(waveNum >= 2 ? ['tank'] : [])];
+      const type = typePool[Math.floor(Math.random() * typePool.length)];
+      spawnOneEnemy(waveNum, safeAngle, halfForbidden, allowedArc, type);
+    }
+  } else {
+    for (let i = 0; i < waveNum; i++) {
+      const typePool = ['normal', ...(waveNum >= 2 ? ['tank'] : []), ...(waveNum >= 3 ? ['flyer'] : [])];
+      const type = typePool[Math.floor(Math.random() * typePool.length)];
+      spawnOneEnemy(waveNum, safeAngle, halfForbidden, allowedArc, type);
+    }
+  }
+}
+
+// ─── Upgrade pool ─────────────────────────────────────────────────────────────
+function buildUpgradePool() {
+  const pool = [];
+  for (const [id, def] of Object.entries(WEAPON_DEFS)) {
+    const current = player.weapons[id] || 0;
+    if (current === 0) {
+      pool.push({ weaponId: id, newLevel: 1,
+        name: def.label,
+        desc: upgradeDesc(id, 1) });
+    } else if (current < def.maxLevel) {
+      pool.push({ weaponId: id, newLevel: current + 1,
+        name: `${def.label} level ${current + 1}`,
+        desc: upgradeDesc(id, current + 1) });
+    }
+  }
+  // Stat upgrades
+  pool.push({ weaponId: null, name: 'Max HP +30',     desc: 'Meer uithoudingsvermogen.',
+    apply: () => { player.maxHp += CONFIG.hpUpgrade; player.hp = Math.min(player.hp + CONFIG.hpUpgrade, player.maxHp); } });
+  pool.push({ weaponId: null, name: 'Snellere benen', desc: 'Loop 10% sneller.',
+    apply: () => { player.speed *= CONFIG.speedUpgrade; } });
+  pool.push({ weaponId: null, name: 'EHBO-kit',       desc: 'Herstel 40 HP.',
+    apply: () => { player.hp = Math.min(player.hp + CONFIG.healUpgrade, player.maxHp); } });
+  return pool;
+}
+
+function upgradeDesc(id, level) {
+  const i = level - 1;
+  const d = WEAPON_DEFS[id];
+  switch (id) {
+    case 'parasol':  return `Schade ${d.dmg[i]}, bereik ${d.reach[i]}px${d.double[i] ? ', dubbele zwaai!' : ''}`;
+    case 'boek':     return `Schade ${d.dmg[i]}, ${d.rate[i].toFixed(1)}/s${d.piercing[i] ? ', doorboorend' : ''}`;
+    case 'passer':   return `Schade ${d.dmg[i]}, elke ${d.interval[i]}s rondzwaai`;
+    case 'gum':      return `Schade ${d.dmg[i]}, ${d.rate[i].toFixed(1)}/s${d.bounces[i] > 0 ? `, ${d.bounces[i]}x bounce` : ''}`;
+    case 'thermos':  return `Schade ${d.dmg[i]}, vertraagt ${d.slow[i]}s${d.splash[i] ? ', splash!' : ''}`;
+    case 'liniaal':  return `Schade ${d.dmg[i]}, lengte ${d.length[i]}px`;
+    case 'rugzak':   return `Schade ${d.dmg[i]}, splashstraal ${d.splashR[i]}px`;
+    default: return '';
+  }
+}
+
+// ─── Reset ────────────────────────────────────────────────────────────────────
+function resetGame() {
+  Object.assign(player, {
+    x: CANVAS_W / 2, y: CANVAS_H / 2,
+    hp: CONFIG.playerHp, maxHp: CONFIG.playerHp,
+    speed: CONFIG.playerSpeed,
+    facingAngle: 0, invincible: 0,
+    weapons: { parasol: 1 },
+    cooldowns: {},
+    swing: null, spinSwing: null, liniaalFlash: null,
+  });
+  enemies = []; projectiles = []; particles = []; pickups = [];
+  wave = 1; wavePhase = 'fighting'; waveMessage = null; betweenWavesTimer = 0; elapsed = 0; graceTimer = 0;
+}
+
+// ─── Kill helper ──────────────────────────────────────────────────────────────
+function killEnemy(i) {
+  playSfx('gans');
+  const { x, y, r, type } = enemies[i];
+  spawnParticles(x, y, '#e0e0e0', 10);
+  deathEffects.push({ x, y, r: r * 0.5, maxR: r * 2.5, life: 0.35, maxLife: 0.35 });
+  if (type === 'bossGoose')
+    pickups.push({ x, y, type: 'heart', healAmt: Math.round(player.maxHp * 0.2) });
+  enemies.splice(i, 1);
+  if (enemies.length === 0 && wavePhase === 'fighting') {
+    // Ruim overblijvende boss-projectielen op zodra de wave gewonnen is
+    for (let k = projectiles.length - 1; k >= 0; k--) {
+      if (projectiles[k].fromBoss) projectiles.splice(k, 1);
+    }
+    wavePhase = 'betweenWaves';
+    betweenWavesTimer = CONFIG.waveBreakDuration;
+    waveMessage = { text: `Ronde ${wave} voltooid!`, timer: CONFIG.waveBreakDuration };
+  }
+}
+
+function damageEnemy(i, dmg) {
+  const e = enemies[i];
+  e.hp -= dmg;
+  spawnParticles(e.x, e.y, '#fff', 3);
+  e.hitTimer = 0.12;
+  const kbAngle = Math.atan2(e.y - player.y, e.x - player.x);
+  e.kbx = Math.cos(kbAngle) * 80;
+  e.kby = Math.sin(kbAngle) * 80;
+  if (e.hp <= 0) { killEnemy(i); return true; }
+  return false;
+}
+
+// ─── Update ───────────────────────────────────────────────────────────────────
+function update(dt) {
+  if (wavePhase === 'choosingUpgrade') return;
+  if (wavePhase === 'betweenWaves') {
+    betweenWavesTimer -= dt;
+    if (betweenWavesTimer <= 0) {
+      wavePhase = 'choosingUpgrade';
+      showLevelUp();
+    }
+    return;
+  }
+  if (wavePhase === 'startingWave') {
+    betweenWavesTimer -= dt;
+    if (betweenWavesTimer <= 0) {
+      wavePhase = 'fighting';
+      spawnEnemiesForWave(wave);
+    }
+    return;
+  }
+  elapsed += dt;
+
+  if (waveMessage) { waveMessage.timer -= dt; if (waveMessage.timer <= 0) waveMessage = null; }
+  if (graceTimer > 0) graceTimer = Math.max(0, graceTimer - dt);
+
+  // Movement
+  let dx = 0, dy = 0;
+  if (keys['ArrowLeft']  || keys['a'] || keys['A']) dx -= 1;
+  if (keys['ArrowRight'] || keys['d'] || keys['D']) dx += 1;
+  if (keys['ArrowUp']    || keys['w'] || keys['W']) dy -= 1;
+  if (keys['ArrowDown']  || keys['s'] || keys['S']) dy += 1;
+  if (dx !== 0 && dy !== 0) { dx *= 0.707; dy *= 0.707; }
+  const nx = Math.max(player.r, Math.min(CONFIG.mapWidth  - player.r, player.x + dx * player.speed * dt));
+  const ny = Math.max(player.r, Math.min(CONFIG.mapHeight - player.r, player.y + dy * player.speed * dt));
+  if (!collidesWithObstacles(nx, player.y, player.r)) player.x = nx;
+  if (!collidesWithObstacles(player.x, ny, player.r)) player.y = ny;
+  player.vx = dx * player.speed;
+  player.vy = dy * player.speed;
+
+  const nearest  = getNearestEnemy();
+  const farthest = getFarthestEnemy();
+  if (nearest) player.facingAngle = Math.atan2(nearest.y - player.y, nearest.x - player.x);
+  else if (dx || dy) player.facingAngle = Math.atan2(dy, dx);
+
+  const cd = player.cooldowns;
+
+  // ── Parasol ──
+  const pLvl = wlvl('parasol');
+  const pDef = WEAPON_DEFS.parasol;
+  if (player.swing) {
+    player.swing.progress += dt / player.swing.duration;
+    if (player.swing.progress >= 1) player.swing = null;
+  }
+  cd.parasol = (cd.parasol || 0) - dt;
+  if (cd.parasol <= 0 && !player.swing && nearest) {
+    const angle = Math.atan2(nearest.y - player.y, nearest.x - player.x);
+    player.swing = { angle, progress: 0, duration: 0.4, hitSet: new Set() };
+    playSfx('parasol');
+    if (pDef.double[pLvl]) {
+      // Queue a second swing shortly after
+      player.swing.double = true;
+    }
+    cd.parasol = jitter(1 / pDef.rate[pLvl]);
+  }
+
+  // ── Passer ──
+  if (player.weapons.passer) {
+    const passLvl = wlvl('passer');
+    const passDef = WEAPON_DEFS.passer;
+    if (player.spinSwing) {
+      player.spinSwing.progress += dt / player.spinSwing.duration;
+      if (player.spinSwing.progress >= 1) player.spinSwing = null;
+    }
+    cd.passer = (cd.passer || 0) - dt;
+    if (cd.passer <= 0 && !player.spinSwing) {
+      playSfx('passer');
+      player.spinSwing = { progress: 0, duration: 0.5, hitSet: new Set(),
+        reach: passDef.reach[passLvl], dmg: passDef.dmg[passLvl] };
+      cd.passer = jitter(passDef.interval[passLvl]);
+    }
+  }
+
+  // ── Liniaal ──
+  if (player.weapons.liniaal) {
+    const linLvl = wlvl('liniaal');
+    const linDef = WEAPON_DEFS.liniaal;
+    if (player.liniaalFlash) {
+      player.liniaalFlash.progress += dt / 0.25;
+      if (player.liniaalFlash.progress >= 1) player.liniaalFlash = null;
+    }
+    cd.liniaal = (cd.liniaal || 0) - dt;
+    if (cd.liniaal <= 0 && !player.liniaalFlash && nearest) {
+      playSfx('liniaal');
+      player.liniaalFlash = { angle: player.facingAngle, progress: 0,
+        length: linDef.length[linLvl], width: linDef.width[linLvl],
+        dmg: linDef.dmg[linLvl], hitSet: new Set() };
+      cd.liniaal = jitter(1 / linDef.rate[linLvl]);
+    }
+  }
+
+  // ── Boek ──
+  if (player.weapons.boek) {
+    const bLvl = wlvl('boek');
+    const bDef = WEAPON_DEFS.boek;
+    cd.boek = (cd.boek || 0) - dt;
+    if (cd.boek <= 0 && farthest) {
+      playSfx('boek');
+      const angle = Math.atan2(farthest.y - player.y, farthest.x - player.x);
+      projectiles.push({ type: 'boek', x: player.x, y: player.y,
+        vx: Math.cos(angle) * bDef.speed[bLvl], vy: Math.sin(angle) * bDef.speed[bLvl],
+        angle: 0, r: 7, dmg: bDef.dmg[bLvl], piercing: bDef.piercing[bLvl], pierced: new Set() });
+      cd.boek = jitter(1 / bDef.rate[bLvl]);
+    }
+  }
+
+  // ── Gum ──
+  if (player.weapons.gum) {
+    const gLvl = wlvl('gum');
+    const gDef = WEAPON_DEFS.gum;
+    cd.gum = (cd.gum || 0) - dt;
+    if (cd.gum <= 0 && nearest) {
+      const angle = Math.atan2(nearest.y - player.y, nearest.x - player.x);
+      playSfx('gum');
+      projectiles.push({ type: 'gum', x: player.x, y: player.y,
+        vx: Math.cos(angle) * gDef.speed[gLvl], vy: Math.sin(angle) * gDef.speed[gLvl],
+        r: 5, dmg: gDef.dmg[gLvl], bouncesLeft: gDef.bounces[gLvl] });
+      cd.gum = jitter(1 / gDef.rate[gLvl]);
+    }
+  }
+
+  // ── Thermos ──
+  if (player.weapons.thermos) {
+    const tLvl = wlvl('thermos');
+    const tDef = WEAPON_DEFS.thermos;
+    cd.thermos = (cd.thermos || 0) - dt;
+    if (cd.thermos <= 0 && nearest) {
+      playSfx('thermos');
+      const angle = Math.atan2(nearest.y - player.y, nearest.x - player.x);
+      projectiles.push({ type: 'thermos', x: player.x, y: player.y,
+        vx: Math.cos(angle) * CONFIG.thermosSpeed, vy: Math.sin(angle) * CONFIG.thermosSpeed,
+        r: 8, dmg: tDef.dmg[tLvl], slowDur: tDef.slow[tLvl],
+        splash: tDef.splash[tLvl], splashR: tDef.splashR[tLvl] });
+      cd.thermos = jitter(1 / tDef.rate[tLvl]);
+    }
+  }
+
+  // ── Rugzak ──
+  if (player.weapons.rugzak) {
+    const rLvl = wlvl('rugzak');
+    const rDef = WEAPON_DEFS.rugzak;
+    cd.rugzak = (cd.rugzak || 0) - dt;
+    if (cd.rugzak <= 0 && nearest) {
+      playSfx('rugzak');
+      const angle = Math.atan2(nearest.y - player.y, nearest.x - player.x);
+      projectiles.push({ type: 'rugzak', x: player.x, y: player.y,
+        vx: Math.cos(angle) * rDef.speed[rLvl], vy: Math.sin(angle) * rDef.speed[rLvl],
+        r: 14, dmg: rDef.dmg[rLvl], splashR: rDef.splashR[rLvl] });
+      cd.rugzak = jitter(1 / rDef.rate[rLvl]);
+    }
+  }
+
+  // ── Move projectiles ──
+  for (let i = projectiles.length - 1; i >= 0; i--) {
+    const p = projectiles[i];
+    p.x += p.vx * dt; p.y += p.vy * dt;
+    if (p.type === 'boek') p.angle += dt * 6;
+    if (p.x < -40 || p.x > CONFIG.mapWidth + 40 || p.y < -40 || p.y > CONFIG.mapHeight + 40
+        || collidesWithObstacles(p.x, p.y, p.r))
+      projectiles.splice(i, 1);
+  }
+
+  // ── Enemies ──
+  if (player.invincible > 0) player.invincible -= dt;
+
+  for (let i = enemies.length - 1; i >= 0; i--) {
+    const e = enemies[i];
+    if (!e) continue;  // guard: splice in geneste loop kan index verschuiven
+    if (e.slowTimer > 0) e.slowTimer -= dt;
+    if (e.hitTimer > 0) e.hitTimer -= dt;
+    if (e.kbx !== 0 || e.kby !== 0) {
+      e.x += e.kbx * dt;
+      e.y += e.kby * dt;
+      e.kbx *= Math.max(0, 1 - dt * 12);
+      e.kby *= Math.max(0, 1 - dt * 12);
+      if (Math.hypot(e.kbx, e.kby) < 1) { e.kbx = 0; e.kby = 0; }
+    }
+    // Boss: schiet periodiek op de speler (geluid als telegraph, projectile 0.25s later)
+    if (e.type === 'bossGoose') {
+      e.shootTimer -= dt;
+      if (e.telegraphTimer > 0) {
+        e.telegraphTimer -= dt;
+        if (e.telegraphTimer <= 0) {
+          const bossProj = projectiles.filter(p => p.fromBoss).length;
+          if (bossProj < CONFIG.maxBossProj) {
+            const bA = Math.atan2(player.y - e.y, player.x - e.x);
+            projectiles.push({ type: 'baasgans', fromBoss: true,
+              x: e.x, y: e.y, r: 14,
+              vx: Math.cos(bA) * 180, vy: Math.sin(bA) * 180,
+              dmg: CONFIG.contactDamage * 1.5 });
+          }
+        }
+      }
+      if (e.shootTimer <= 0) {
+        e.shootTimer = rand(2.5, 4.0);
+        e.telegraphTimer = 0.25;   // geluid nu, projectile over 0.25s
+        playSound(sfxGanspoep);
+      }
+    }
+
+    const graceMult = graceTimer > 0 ? 0.25 + 0.75 * (1 - graceTimer) : 1;
+    const spd = (e.slowTimer > 0 ? e.speed * CONFIG.enemySlowFactor : e.speed) * graceMult;
+    // Bosses mikken op een punt iets vóór de speler (intercept), overige vijanden direct op de speler
+    let targetX = player.x, targetY = player.y;
+    if (e.type === 'bossGoose' && (player.vx !== 0 || player.vy !== 0)) {
+      const leadT = 0.55;  // seconden vooruit kijken
+      targetX += player.vx * leadT;
+      targetY += player.vy * leadT;
+    }
+    const toA = Math.atan2(targetY - e.y, targetX - e.x);
+    let mx = Math.cos(toA) * spd;
+    let my = Math.sin(toA) * spd;
+
+    // Separation: duw weg van te dichtbij staande ganzen
+    for (let j = 0; j < enemies.length; j++) {
+      if (j === i) continue;
+      const ox = e.x - enemies[j].x;
+      const oy = e.y - enemies[j].y;
+      const dist = Math.hypot(ox, oy);
+      const minDist = e.r + enemies[j].r + CONFIG.separationDist;
+      if (dist < minDist && dist > 0) {
+        const f = CONFIG.separationStr / dist;
+        mx += ox * f;
+        my += oy * f;
+      }
+    }
+
+    const ex = Math.max(e.r, Math.min(CONFIG.mapWidth  - e.r, e.x + mx * dt));
+    const ey = Math.max(e.r, Math.min(CONFIG.mapHeight - e.r, e.y + my * dt));
+    if (ENEMY_TYPES[e.type]?.ignoresObstacles) {
+      e.x = ex; e.y = ey;
+    } else {
+      const canX = !collidesWithObstacles(ex, e.y, e.r);
+      const canY = !collidesWithObstacles(e.x, ey, e.r);
+      if (canX) e.x = ex;
+      if (canY) e.y = ey;
+
+      // Vastgelopen: probeer loodrechte richting om los te komen
+      if (!canX && !canY) {
+        for (const side of [toA + Math.PI / 2, toA - Math.PI / 2]) {
+          const px = Math.max(e.r, Math.min(CONFIG.mapWidth  - e.r, e.x + Math.cos(side) * spd * dt));
+          const py = Math.max(e.r, Math.min(CONFIG.mapHeight - e.r, e.y + Math.sin(side) * spd * dt));
+          if (!collidesWithObstacles(px, e.y, e.r)) { e.x = px; break; }
+          if (!collidesWithObstacles(e.x, py, e.r)) { e.y = py; break; }
+        }
+      }
+    }
+
+    // Hits player
+    if (player.invincible <= 0 && Math.hypot(e.x - player.x, e.y - player.y) < e.r + player.r) {
+      player.hp -= CONFIG.contactDamage; player.invincible = CONFIG.playerIframes;
+      playSound(sfxAuw);
+      spawnParticles(player.x, player.y, '#e74c3c', 8);
+      if (player.hp <= 0) { player.hp = 0; endGame(); return; }
+    }
+
+    let killed = false;
+
+    // Parasol
+    if (player.swing && !player.swing.hitSet.has(i)) {
+      const dist = Math.hypot(e.x - player.x, e.y - player.y);
+      if (dist < pDef.reach[pLvl] + e.r) {
+        let diff = Math.atan2(e.y - player.y, e.x - player.x) - player.swing.angle;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        if (Math.abs(diff) < pDef.arc[pLvl] / 2) {
+          player.swing.hitSet.add(i);
+          killed = damageEnemy(i, pDef.dmg[pLvl]);
+          if (!killed) {
+            const kbA = Math.atan2(e.y - player.y, e.x - player.x);
+            e.kbx = Math.cos(kbA) * 200; e.kby = Math.sin(kbA) * 200;
+          }
+        }
+      }
+    }
+    if (killed) continue;
+
+    // Passer (spin)
+    if (player.spinSwing && !player.spinSwing.hitSet.has(i)) {
+      if (Math.hypot(e.x - player.x, e.y - player.y) < player.spinSwing.reach + e.r) {
+        player.spinSwing.hitSet.add(i);
+        const critMult = e.hp < e.maxHp / 2 ? 2 : 1;
+        killed = damageEnemy(i, player.spinSwing.dmg * critMult);
+      }
+    }
+    if (killed) continue;
+
+    // Liniaal
+    if (player.liniaalFlash && !player.liniaalFlash.hitSet.has(i)) {
+      const lf = player.liniaalFlash;
+      // Project enemy onto the beam
+      const ex = e.x - player.x, ey = e.y - player.y;
+      const cos = Math.cos(lf.angle), sin = Math.sin(lf.angle);
+      const along = ex * cos + ey * sin;
+      const perp  = Math.abs(-ex * sin + ey * cos);
+      if (along > 0 && along < lf.length && perp < lf.width / 2 + e.r) {
+        lf.hitSet.add(i);
+        killed = damageEnemy(i, lf.dmg);
+      }
+    }
+    if (killed) continue;
+
+    // Boss-projectielen raken de speler (niet de vijanden)
+    for (let j = projectiles.length - 1; j >= 0; j--) {
+      const p = projectiles[j];
+      if (!p.fromBoss) continue;
+      if (player.invincible > 0) continue;
+      if (Math.hypot(p.x - player.x, p.y - player.y) > p.r + player.r) continue;
+      player.hp -= p.dmg; player.invincible = CONFIG.playerIframes;
+      playSound(sfxAuw);
+      spawnParticles(player.x, player.y, '#8B0000', 8);
+      projectiles.splice(j, 1);
+      if (player.hp <= 0) { player.hp = 0; endGame(); return; }
+    }
+
+    // Speler-projectielen raken vijanden
+    for (let j = projectiles.length - 1; j >= 0; j--) {
+      const p = projectiles[j];
+      if (p.fromBoss) continue;
+      if (Math.hypot(p.x - e.x, p.y - e.y) > p.r + e.r) continue;
+
+      if (p.type === 'gum') {
+        spawnParticles(e.x, e.y, '#f39c12', 3);
+        killed = damageEnemy(i, p.dmg);
+        if (p.bouncesLeft > 0) {
+          // Bounce: redirect to next nearest enemy
+          p.bouncesLeft--;
+          const next = enemies.filter((_, idx) => idx !== i)
+            .sort((a, b) => Math.hypot(a.x-p.x,a.y-p.y) - Math.hypot(b.x-p.x,b.y-p.y))[0];
+          if (next) {
+            const spd2 = Math.hypot(p.vx, p.vy);
+            const na = Math.atan2(next.y - p.y, next.x - p.x);
+            p.vx = Math.cos(na) * spd2; p.vy = Math.sin(na) * spd2;
+          } else {
+            projectiles.splice(j, 1);
+          }
+        } else {
+          projectiles.splice(j, 1);
+        }
+        if (killed) break; else continue;
+      }
+
+      if (p.type === 'thermos') {
+        e.slowTimer = p.slowDur;
+        if (p.splash) {
+          // Splash: damage + slow overige vijanden (sla i over – die krijgt aparte full damage)
+          for (let k = enemies.length - 1; k >= 0; k--) {
+            if (k === i) continue;
+            if (Math.hypot(enemies[k].x - p.x, enemies[k].y - p.y) < p.splashR) {
+              enemies[k].slowTimer = p.slowDur;
+              damageEnemy(k, Math.ceil(p.dmg / 2));
+            }
+          }
+          spawnParticles(p.x, p.y, '#3498db', 12);
+        }
+        projectiles.splice(j, 1);
+        // Hercheck: i kan verschoven zijn als splash vijanden onder i heeft gedood
+        if (i < enemies.length) {
+          killed = damageEnemy(i, p.dmg);
+        } else {
+          killed = true;
+        }
+        if (killed) break; else continue;
+      }
+
+      if (p.type === 'rugzak') {
+        // Splash damage alle vijanden in straal (sla i over – aparte check erna)
+        for (let k = enemies.length - 1; k >= 0; k--) {
+          if (k === i) continue;
+          if (Math.hypot(enemies[k].x - p.x, enemies[k].y - p.y) < p.splashR) {
+            damageEnemy(k, p.dmg);
+          }
+        }
+        // Schade aan de direct geraakte vijand (hercheck index na splices)
+        if (i < enemies.length && Math.hypot(enemies[i].x - p.x, enemies[i].y - p.y) < p.splashR) {
+          damageEnemy(i, p.dmg);
+        }
+        spawnParticles(p.x, p.y, '#8B4513', 14);
+        projectiles.splice(j, 1);
+        killed = true; break;
+      }
+
+      // boek (with optional piercing)
+      if (p.type === 'boek') {
+        if (p.pierced && p.pierced.has(i)) continue;
+        if (p.pierced) p.pierced.add(i); else projectiles.splice(j, 1);
+        spawnParticles(e.x, e.y, '#8B2500', 4);
+        killed = damageEnemy(i, p.dmg);
+        if (killed) break;
+      }
+    }
+
+    if (killed) continue;
+  }
+
+  // ── Death effects ──
+  for (let i = deathEffects.length - 1; i >= 0; i--) {
+    const d = deathEffects[i];
+    d.r += (d.maxR - d.r) * dt * 8;
+    d.life -= dt;
+    if (d.life <= 0) deathEffects.splice(i, 1);
+  }
+
+  // ── Particles ──
+  for (let i = particles.length - 1; i >= 0; i--) {
+    const p = particles[i];
+    p.x += p.vx * dt; p.y += p.vy * dt;
+    p.vx *= 0.9; p.vy *= 0.9;
+    p.life -= dt;
+    if (p.life <= 0) particles.splice(i, 1);
+  }
+
+  // ── Pickups (hartjes bewegen naar speler) ──
+  for (let i = pickups.length - 1; i >= 0; i--) {
+    const pk = pickups[i];
+    const dx = player.x - pk.x;
+    const dy = player.y - pk.y;
+    const dist = Math.hypot(dx, dy);
+    if (dist > 0) { pk.x += (dx / dist) * 120 * dt; pk.y += (dy / dist) * 120 * dt; }
+    if (dist < player.r + 10) {
+      player.hp = Math.min(player.maxHp, player.hp + pk.healAmt);
+      spawnParticles(pk.x, pk.y, '#e74c3c', 8);
+      pickups.splice(i, 1);
+    }
+  }
+}
+
+// ─── Draw helpers ─────────────────────────────────────────────────────────────
+function drawGoose(e) {
+  const { x, y, r, hp, maxHp, tier, slowTimer, hitTimer, type } = e;
+  const angle = Math.atan2(player.y - e.y, player.x - e.x);
+  const tDef  = ENEMY_TYPES[type] || ENEMY_TYPES.normal;
+  const baseColor = tDef.color || (tier < 2 ? '#f5f5f5' : tier < 4 ? '#f0e8d0' : '#e8d0b0');
+  const bodyColor = (hitTimer > 0) ? '#ffffff' : baseColor;
+
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+
+  if (slowTimer > 0) {
+    ctx.globalAlpha = 0.35;
+    ctx.fillStyle = '#3498db';
+    ctx.beginPath();
+    ctx.ellipse(0, 0, r * 1.2, r * 0.9, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+
+  ctx.fillStyle = bodyColor;
+  ctx.beginPath(); ctx.ellipse(0, 0, r, r * 0.65, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = '#ccc'; ctx.lineWidth = 0.8; ctx.stroke();
+
+  ctx.fillStyle = '#dcdcdc';
+  ctx.beginPath(); ctx.ellipse(0, -r*0.48, r*0.55, r*0.17, 0.2, 0, Math.PI*2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(0,  r*0.48, r*0.55, r*0.17,-0.2, 0, Math.PI*2); ctx.fill();
+
+  ctx.fillStyle = bodyColor;
+  ctx.beginPath(); ctx.ellipse(r*0.72, 0, r*0.28, r*0.2, 0, 0, Math.PI*2); ctx.fill();
+
+  const hx = r * 1.02;
+  ctx.fillStyle = bodyColor;
+  ctx.beginPath(); ctx.arc(hx, 0, r*0.27, 0, Math.PI*2); ctx.fill();
+  ctx.strokeStyle = '#ccc'; ctx.lineWidth = 0.5; ctx.stroke();
+
+  ctx.fillStyle = '#e67e22';
+  ctx.beginPath();
+  ctx.moveTo(hx+r*0.27, -r*0.09); ctx.lineTo(hx+r*0.52, 0); ctx.lineTo(hx+r*0.27, r*0.09);
+  ctx.closePath(); ctx.fill();
+
+  ctx.fillStyle = '#111';
+  ctx.beginPath(); ctx.arc(hx+r*0.08, -r*0.09, r*0.065, 0, Math.PI*2); ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(hx+r*0.1, -r*0.11, r*0.025, 0, Math.PI*2); ctx.fill();
+
+  ctx.restore();
+
+  const bw = r*2.5, bh = 4;
+  ctx.fillStyle = '#333'; ctx.fillRect(x-bw/2, y-r-10, bw, bh);
+  ctx.fillStyle = '#2ecc71'; ctx.fillRect(x-bw/2, y-r-10, bw*(hp/maxHp), bh);
+}
+
+function drawStudent() {
+  const { x, y, r, facingAngle, invincible } = player;
+  if (invincible > 0 && Math.floor(invincible * 10) % 2 === 0) return;
+
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(facingAngle);
+
+  ctx.fillStyle = '#6d4c41';
+  ctx.fillRect(-r*0.95, -r*0.55, r*0.7, r*1.1);
+  ctx.fillStyle = '#8d6e63';
+  ctx.fillRect(-r*0.82, -r*0.38, r*0.45, r*0.62);
+  ctx.strokeStyle = '#5d4037'; ctx.lineWidth = 0.8;
+  ctx.strokeRect(-r*0.82, -r*0.38, r*0.45, r*0.62);
+
+  ctx.fillStyle = '#1a3a6c';
+  ctx.beginPath(); ctx.ellipse(0, 0, r*0.72, r*0.9, 0, 0, Math.PI*2); ctx.fill();
+
+  const hx = r * 0.68;
+  ctx.fillStyle = '#f5cba7';
+  ctx.beginPath(); ctx.arc(hx, 0, r*0.44, 0, Math.PI*2); ctx.fill();
+
+  ctx.fillStyle = '#c0392b';
+  ctx.beginPath(); ctx.arc(hx, 0, r*0.46, Math.PI, 0); ctx.closePath(); ctx.fill();
+
+  ctx.fillStyle = '#922b21';
+  ctx.fillRect(hx+r*0.05, -r*0.09, r*0.52, r*0.18);
+
+  ctx.restore();
+
+  const pw = 60, ph = 6;
+  ctx.fillStyle = '#333'; ctx.fillRect(x-pw/2, y-r-12, pw, ph);
+  ctx.fillStyle = '#e74c3c'; ctx.fillRect(x-pw/2, y-r-12, pw*(player.hp/player.maxHp), ph);
+}
+
+function drawParasol() {
+  if (!player.swing) return;
+  const { x, y, swing } = player;
+  const pLvl = wlvl('parasol');
+  const reach = WEAPON_DEFS.parasol.reach[pLvl];
+  const arc   = WEAPON_DEFS.parasol.arc[pLvl];
+  const { angle, progress } = swing;
+  const half = arc / 2;
+
+  ctx.globalAlpha = 0.2 * (1 - progress);
+  ctx.fillStyle = '#e74c3c';
+  ctx.beginPath(); ctx.moveTo(x, y);
+  ctx.arc(x, y, reach, angle - half, angle + half);
+  ctx.closePath(); ctx.fill();
+  ctx.globalAlpha = 1;
+
+  const cur  = angle - half + arc * progress;
+  const tipX = x + Math.cos(cur) * reach;
+  const tipY = y + Math.sin(cur) * reach;
+
+  ctx.strokeStyle = '#8B4513'; ctx.lineWidth = 2.5; ctx.lineCap = 'round';
+  ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(tipX, tipY); ctx.stroke();
+
+  ctx.save();
+  ctx.translate(tipX, tipY); ctx.rotate(cur);
+  ctx.fillStyle = '#c0392b';
+  ctx.beginPath(); ctx.arc(0, 0, 11, -Math.PI/2, Math.PI/2); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1.2;
+  for (let k = -2; k <= 2; k++) {
+    const sy = k * 4.5, sx = Math.sqrt(Math.max(0, 121 - sy*sy));
+    ctx.beginPath(); ctx.moveTo(0, sy); ctx.lineTo(sx, sy); ctx.stroke();
+  }
+  ctx.strokeStyle = '#7b241c'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(0, 0, 11, -Math.PI/2, Math.PI/2); ctx.closePath(); ctx.stroke();
+  ctx.restore();
+}
+
+function drawPasser() {
+  if (!player.spinSwing) return;
+  const { x, y } = player;
+  const { progress, reach } = player.spinSwing;
+  ctx.globalAlpha = 0.35 * (1 - progress);
+  ctx.strokeStyle = '#f39c12'; ctx.lineWidth = 10 * (1 - progress);
+  ctx.beginPath(); ctx.arc(x, y, reach, 0, Math.PI*2); ctx.stroke();
+  ctx.globalAlpha = 1;
+}
+
+function drawLiniaal() {
+  if (!player.liniaalFlash) return;
+  const { x, y, liniaalFlash: lf } = player;
+  const alpha = 1 - lf.progress;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.translate(x, y); ctx.rotate(lf.angle);
+  ctx.fillStyle = '#f0e68c';
+  ctx.fillRect(0, -lf.width / 2, lf.length, lf.width);
+  ctx.strokeStyle = '#daa520'; ctx.lineWidth = 1;
+  ctx.strokeRect(0, -lf.width / 2, lf.length, lf.width);
+  // Ruler marks
+  ctx.strokeStyle = 'rgba(0,0,0,0.3)'; ctx.lineWidth = 0.8;
+  for (let m = 10; m < lf.length; m += 10) {
+    const h = m % 50 === 0 ? lf.width * 0.6 : lf.width * 0.3;
+    ctx.beginPath(); ctx.moveTo(m, -h/2); ctx.lineTo(m, h/2); ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawProjectiles() {
+  for (const p of projectiles) {
+    if (p.type === 'boek') {
+      ctx.save();
+      ctx.translate(p.x, p.y); ctx.rotate(p.angle);
+      ctx.fillStyle = '#8B2500'; ctx.fillRect(-7, -5, 14, 10);
+      ctx.fillStyle = '#c0392b'; ctx.fillRect(-6, -4, 12, 8);
+      ctx.restore();
+    } else if (p.type === 'gum') {
+      ctx.fillStyle = '#e74c3c';
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#c0392b';
+      ctx.fillRect(p.x - 4, p.y - 3, 8, 6);
+    } else if (p.type === 'thermos') {
+      ctx.save();
+      ctx.translate(p.x, p.y); ctx.rotate(Math.atan2(p.vy, p.vx));
+      ctx.fillStyle = '#2980b9';
+      ctx.beginPath(); ctx.ellipse(0, 0, 8, 5, 0, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#3498db';
+      ctx.beginPath(); ctx.ellipse(0, 0, 6, 3.5, 0, 0, Math.PI*2); ctx.fill();
+      ctx.restore();
+    } else if (p.type === 'rugzak') {
+      ctx.save();
+      ctx.translate(p.x, p.y); ctx.rotate(Math.atan2(p.vy, p.vx));
+      ctx.fillStyle = '#6d4c41';
+      ctx.fillRect(-p.r, -p.r * 0.7, p.r * 2, p.r * 1.4);
+      ctx.fillStyle = '#8d6e63';
+      ctx.fillRect(-p.r * 0.7, -p.r * 0.5, p.r * 1.2, p.r * 0.9);
+      ctx.restore();
+    } else if (p.type === 'baasgans') {
+      // Donkerrode stinkende gansbal
+      ctx.save();
+      ctx.translate(p.x, p.y);
+      ctx.fillStyle = '#6B0000';
+      ctx.beginPath(); ctx.arc(0, 0, p.r, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#FF4444';
+      ctx.beginPath(); ctx.arc(-3, -3, p.r * 0.4, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+  }
+}
+
+// ─── Drawing ─────────────────────────────────────────────────────────────────
+function draw() {
+  // Camera: speler in midden, geclampt aan map-grenzen
+  camera.x = Math.max(0, Math.min(CONFIG.mapWidth  - CANVAS_W, player.x - CANVAS_W / 2));
+  camera.y = Math.max(0, Math.min(CONFIG.mapHeight - CANVAS_H, player.y - CANVAS_H / 2));
+
+  ctx.fillStyle = '#1d3d08';
+  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+
+  // ── World space (camera offset) ──
+  ctx.save();
+  ctx.translate(-camera.x, -camera.y);
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.04)'; ctx.lineWidth = 1;
+  for (let gx = 0; gx < CONFIG.mapWidth;  gx += 40) { ctx.beginPath(); ctx.moveTo(gx,0); ctx.lineTo(gx,CONFIG.mapHeight); ctx.stroke(); }
+  for (let gy = 0; gy < CONFIG.mapHeight; gy += 40) { ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(CONFIG.mapWidth,gy); ctx.stroke(); }
+
+  // Map-grens zichtbaar maken
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 3;
+  ctx.strokeRect(0, 0, CONFIG.mapWidth, CONFIG.mapHeight);
+
+  // Obstakels
+  for (const o of obstacles) {
+    ctx.fillStyle = '#4a3728';
+    ctx.fillRect(o.x, o.y, o.w, o.h);
+    ctx.strokeStyle = '#6d4c41'; ctx.lineWidth = 2;
+    ctx.strokeRect(o.x, o.y, o.w, o.h);
+  }
+
+  for (const d of deathEffects) {
+    ctx.globalAlpha = (d.life / d.maxLife) * 0.7;
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2); ctx.stroke();
+  }
+  for (const p of particles) {
+    ctx.globalAlpha = p.life / p.maxLife;
+    ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  for (const e of enemies) drawGoose(e);
+
+  drawProjectiles();
+  drawPasser();
+  drawLiniaal();
+  drawParasol();
+  drawStudent();
+
+  // ── Pickups (hartjes) ──
+  for (const pk of pickups) {
+    if (pk.type !== 'heart') continue;
+    const hx = pk.x, hy = pk.y, s = 10;
+    ctx.save();
+    ctx.fillStyle = '#e74c3c';
+    ctx.beginPath();
+    // Hartje via twee cirkels + driehoek
+    ctx.arc(hx - s * 0.5, hy - s * 0.3, s * 0.55, 0, Math.PI * 2);
+    ctx.arc(hx + s * 0.5, hy - s * 0.3, s * 0.55, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(hx - s, hy - s * 0.1);
+    ctx.lineTo(hx, hy + s);
+    ctx.lineTo(hx + s, hy - s * 0.1);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  ctx.restore();
+  // ── Screen space ──
+
+  if (waveMessage) {
+    const isBossMsg = waveMessage.text.startsWith('ALARM');
+    ctx.globalAlpha = Math.min(1, waveMessage.timer / 0.5);
+    ctx.fillStyle = isBossMsg ? '#FF2222' : '#fff';
+    ctx.font = isBossMsg ? 'bold 44px sans-serif' : 'bold 36px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(waveMessage.text, CANVAS_W/2, CANVAS_H/2 - 20);
+    ctx.globalAlpha = 1; ctx.textAlign = 'left';
+  }
+
+  elHP.textContent    = player.hp;
+  elWave.textContent  = wave;
+  elTimer.textContent = Math.floor(elapsed);
+
+  // ── Debug overlay (verwijder als freeze-probleem opgelost is) ──
+  const bossProjs = projectiles.filter(p => p.fromBoss).length;
+  ctx.save();
+  ctx.font = '11px monospace';
+  ctx.textAlign = 'left';
+  const dbgLines = [
+    `wave:      ${wave}`,
+    `enemies:   ${enemies.length}`,
+    `proj:      ${projectiles.length - bossProjs} speler / ${bossProjs} boss`,
+    `pickups:   ${pickups.length}`,
+    `effects:   ${particles.length} particles / ${deathEffects.length} death`,
+  ];
+  dbgLines.forEach((line, idx) => {
+    ctx.fillStyle = 'rgba(0,0,0,0.55)';
+    ctx.fillRect(6, CANVAS_H - 90 + idx * 15, 230, 14);
+    ctx.fillStyle = '#00ff88';
+    ctx.fillText(line, 8, CANVAS_H - 79 + idx * 15);
+  });
+  ctx.restore();
+}
+
+// ─── Loop ─────────────────────────────────────────────────────────────────────
+function loop(ts) {
+  if (state !== 'playing') return;
+  const dt = Math.min((ts - lastTime) / 1000, 0.05);
+  lastTime = ts;
+  update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+// ─── UI Flow ─────────────────────────────────────────────────────────────────
+function startGame() {
+  resetGame();
+  startMusic();
+  overlay.classList.add('hidden');
+  levelPanel.classList.add('hidden');
+  state = 'playing';
+  wavePhase = 'fighting';
+  spawnEnemiesForWave(wave);
+  waveMessage = { text: 'Wave 1!', timer: 1.5 };
+  lastTime = performance.now();
+  requestAnimationFrame(loop);
+}
+
+function endGame() {
+  state = 'dead';
+  saveHighscore(wave, Math.floor(elapsed));
+  overlayTitle.textContent = 'Game Over';
+  overlayMsg.textContent   = `Je overleefde ${Math.floor(elapsed)}s en haalde wave ${wave}!`;
+  overlayBtn.textContent   = 'Opnieuw spelen';
+  updateHighscoreBox();
+  overlay.classList.remove('hidden');
+  playSound(sfxVerlies);
+  setTimeout(() => playSound(sfxGanzenwinnen), 500);
+}
+
+function showLevelUp() {
+  state = 'levelup';
+  waveCompleteTitle.textContent = `Wave ${wave} voltooid!`;
+  upgradeOpts.innerHTML = '';
+  const pool    = buildUpgradePool();
+  const choices = pool.sort(() => Math.random() - 0.5).slice(0, 3);
+  for (const u of choices) {
+    const card = document.createElement('div');
+    card.className = 'upgrade-card';
+    card.innerHTML = `<h3>${u.name}</h3><p>${u.desc}</p>`;
+    card.addEventListener('click', () => {
+      if (u.weaponId) player.weapons[u.weaponId] = u.newLevel;
+      else u.apply();
+      levelPanel.classList.add('hidden');
+      wave++;
+      wavePhase = 'startingWave';
+      betweenWavesTimer = CONFIG.waveBreakDuration;
+      waveMessage = { text: `Wave ${wave} start!`, timer: CONFIG.waveBreakDuration };
+      state = 'playing';
+      lastTime = performance.now();
+      requestAnimationFrame(loop);
+    });
+    upgradeOpts.appendChild(card);
+  }
+  levelPanel.classList.remove('hidden');
+}
+
+// ─── Geluid toggle ────────────────────────────────────────────────────────────
+const soundToggleBtn = document.getElementById('sound-toggle');
+soundToggleBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  soundEnabled = !soundEnabled;
+  soundToggleBtn.textContent = soundEnabled ? 'Geluid: AAN' : 'Geluid: UIT';
+  if (!soundEnabled) {
+    Object.values(MUSIC_TRACKS).forEach(t => t.pause());
+  } else if (state === 'playing' || state === 'levelup') {
+    startMusic();
+  }
+});
+
+// ─── Startscherm ─────────────────────────────────────────────────────────────
+overlayBtn.addEventListener('click', startGame);
+overlayTitle.textContent = 'Avans Gans Attack';
+overlayMsg.innerHTML     = 'Overleef golven van boze ganzen!<br>Beweeg met WASD of de pijltjestoetsen.';
+overlayBtn.textContent   = 'Start';
+updateHighscoreBox();
+overlay.classList.remove('hidden');

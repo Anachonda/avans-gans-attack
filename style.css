@@ -1,0 +1,159 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: #0a0a0f;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  font-family: 'Segoe UI', sans-serif;
+  color: #eee;
+  overflow: hidden;
+}
+
+#ui {
+  position: relative;
+  display: inline-block;
+}
+
+#hud {
+  display: flex;
+  gap: 24px;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: 8px 8px 0 0;
+  font-size: 14px;
+  font-weight: bold;
+}
+
+#hp-display  { color: #e74c3c; }
+#xp-display  { color: #2ecc71; }
+#level-display { color: #f1c40f; }
+#timer-display { color: #3498db; }
+
+#game-canvas {
+  display: block;
+  border: 2px solid #222;
+}
+
+/* Overlay (start / game-over screen) */
+#overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.75);
+  border-radius: 0 0 6px 6px;
+}
+
+#overlay.hidden { display: none; }
+
+#overlay-box {
+  text-align: center;
+  padding: 32px 48px 40px;
+  background: #1c1c28;
+  border: 2px solid #C6002A;
+  border-radius: 12px;
+}
+
+#start-img {
+  display: block;
+  margin: 0 auto 16px;
+  height: 160px;
+  border-radius: 8px;
+  object-fit: cover;
+  box-shadow: 0 4px 18px rgba(198,0,42,0.4);
+}
+
+#overlay-box h1 {
+  font-size: 2.4rem;
+  margin-bottom: 10px;
+  color: #C6002A;
+  text-shadow: 0 1px 6px rgba(198,0,42,0.3);
+}
+
+#overlay-box p {
+  margin-bottom: 20px;
+  color: #e8e8e8;
+}
+
+button {
+  padding: 12px 32px;
+  font-size: 1rem;
+  font-weight: bold;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  background: #C6002A;
+  color: #fff;
+  transition: background 0.15s;
+}
+
+button:hover { background: #a0001f; }
+
+#sound-toggle {
+  display: block;
+  margin: 10px auto 0;
+  padding: 7px 20px;
+  font-size: 0.85rem;
+  background: transparent;
+  color: #ccc;
+  border: 1px solid #C6002A;
+}
+
+#sound-toggle:hover { background: rgba(198,0,42,0.15); color: #fff; }
+
+#highscore-box {
+  margin: 0 0 18px;
+  font-size: 0.85rem;
+  color: #ffffff;
+  min-height: 1.2em;
+}
+
+/* Level-up upgrade panel */
+#level-up-panel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  background: rgba(0, 0, 0, 0.8);
+}
+
+#level-up-panel.hidden { display: none; }
+
+#level-up-panel h2 {
+  font-size: 1.8rem;
+  color: #C6002A;
+}
+
+#upgrade-options {
+  display: flex;
+  gap: 16px;
+}
+
+.upgrade-card {
+  padding: 20px 24px;
+  width: 160px;
+  background: #1e1e2e;
+  border: 1px solid #444;
+  border-radius: 10px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, transform 0.1s;
+}
+
+.upgrade-card:hover {
+  border-color: #C6002A;
+  transform: translateY(-3px);
+}
+
+.upgrade-card h3 { font-size: 1rem; color: #C6002A; margin-bottom: 8px; }
+.upgrade-card p  { font-size: 0.8rem; color: #aaa; }
