@@ -57,6 +57,7 @@ const CONFIG = {
 
 // ─── Sound & Highscore ───────────────────────────────────────────────────────
 let soundEnabled = true;
+const DEBUG = false;
 
 function loadHighscore() {
   return {
@@ -1194,6 +1195,7 @@ function draw() {
   elTimer.textContent = Math.floor(elapsed);
 
   // ── Debug overlay (verwijder als freeze-probleem opgelost is) ──
+  if (DEBUG) {
   const bossProjs = projectiles.filter(p => p.fromBoss).length;
   ctx.save();
   ctx.font = '11px monospace';
@@ -1212,6 +1214,7 @@ function draw() {
     ctx.fillText(line, 8, CANVAS_H - 79 + idx * 15);
   });
   ctx.restore();
+  } // end DEBUG
 }
 
 // ─── Loop ─────────────────────────────────────────────────────────────────────
