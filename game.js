@@ -481,7 +481,7 @@ function killEnemy(i) {
   spawnParticles(x, y, '#e0e0e0', 10);
   deathEffects.push({ x, y, r: r * 0.5, maxR: r * 2.5, life: 0.35, maxLife: 0.35 });
   if (type === 'bossGoose')
-    pickups.push({ x, y, type: 'heart', healAmt: Math.round(player.maxHp * 0.2) });
+    pickups.push({ x, y, type: 'heart', healAmt: Math.round(player.maxHp * 0.1) });
   enemies.splice(i, 1);
   if (enemies.length === 0 && wavePhase === 'fighting') {
     // Ruim overblijvende boss-projectielen op zodra de wave gewonnen is
