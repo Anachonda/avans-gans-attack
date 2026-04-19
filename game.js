@@ -11,7 +11,7 @@ const CONFIG = {
   enemyBaseHp:     3,
   enemyBaseSpeed:  70,
   enemySlowFactor: 0.4,   // snelheidsmultiplier bij thermos-slow
-  maxEnemyRadius:  45,    // max vijand-radius zodat geen enkele gans vastzit in smalle doorgangen
+  maxEnemyRadius:  16,    // max vijand-radius zodat geen enkele gans vastzit in smalle doorgangen
   maxEnemies:      80,    // safety cap: max totaal aantal enemies tegelijk
   maxBossProj:     12,    // safety cap: max boss-projectielen tegelijk
 
@@ -22,9 +22,8 @@ const CONFIG = {
   // Wave pauze
   waveBreakDuration: 1.0,   // seconden pauze na het verslaan van alle vijanden
 
-  // Spawn afstand (pixels van de speler)
-  spawnMinDist: 450,   // minimaal net buiten het zichtbare scherm
-  spawnMaxDist: 650,   // maximaal iets verder
+  // Spawn afstand (minimale afstand vaste spawnpunten t.o.v. speler)
+  spawnMinDist: 350,
 
   // Enemy separation
   separationDist:  28,    // afstand waaronder ganzen elkaar wegduwen (pixels)
@@ -257,12 +256,61 @@ const player = {
 };
 
 const camera    = { x: 0, y: 0 };
+
+// ─── Map image ────────────────────────────────────────────────────────────────
+const mapImage = new Image();
+mapImage.src = 'speelveldfinal.png';
+
+// Obstakels in 1600×1200 wereldruimte — coördinaten ingemeten via debug-overlay
 const obstacles = [
-  { x: 300,  y: 200,  w: 160, h: 30  },
-  { x: 700,  y: 380,  w: 30,  h: 180 },
-  { x: 1050, y: 280,  w: 120, h: 120 },
-  { x: 480,  y: 680,  w: 220, h: 30  },
-  { x: 1280, y: 750,  w: 30,  h: 220 },
+  // Bovenwand
+  { x: 0,    y: 0,    w: 1432, h: 40   },
+  // Gebouw rechts
+  { x: 1432, y: 0,    w: 168,  h: 1200 },
+  // Auto 1 (grijs linksboven)
+  { x: 14,   y: 114,  w: 144,  h: 85   },
+  // Auto 2 (oranje)
+  { x: 14,   y: 337,  w: 138,  h: 84   },
+  // Auto 3 (groen)
+  { x: 14,   y: 871,  w: 138,  h: 112  },
+  // Bankje linksboven (horizontaal)
+  { x: 291,  y: 176,  w: 186,  h: 72   },
+  // Bankje midden-links (verticaal)
+  { x: 679,  y: 376,  w: 72,   h: 187  },
+  // Bankje midden (horizontaal)
+  { x: 498,  y: 665,  w: 186,  h: 72   },
+  // Bankje rechtsonder (verticaal)
+  { x: 1272, y: 736,  w: 60,   h: 192  },
+  // Picnictafel
+  { x: 1066, y: 289,  w: 127,  h: 127  },
+];
+
+// Vijver + onderkant: alleen obstakel voor speler, ganzen spawnen hier juist
+const POND_OBSTACLES = [
+  { x: 0,    y: 983,  w: 1008, h: 217  },
+  { x: 1008, y: 1024, w: 424,  h: 176  },
+];
+
+// Ganzen spawnen altijd vanuit de vijver of de planten rechts ernaast (linksonder)
+const ENEMY_SPAWN_POINTS = [
+  // Vijver (x=0–146, y=983–1200)
+  { x: 35,  y: 1010 }, { x: 70,  y: 1050 }, { x: 45,  y: 1090 },
+  { x: 100, y: 1030 }, { x: 80,  y: 1130 }, { x: 120, y: 1080 },
+  // Planten rechts naast vijver (x=150–600, y=990–1150)
+  { x: 190, y: 1000 }, { x: 260, y: 1010 }, { x: 340, y: 1005 },
+  { x: 420, y: 1000 }, { x: 500, y: 1005 }, { x: 580, y: 1000 },
+  { x: 220, y: 1060 }, { x: 310, y: 1060 }, { x: 400, y: 1055 },
+  { x: 480, y: 1060 }, { x: 550, y: 1055 },
+];
+
+// Speler-spawnpunten op het kronkelpad (afb-coördinaten × 0.6695)
+const PLAYER_SPAWN_POINTS = [
+  { x: 380, y: 820 },
+  { x: 450, y: 720 },
+  { x: 490, y: 600 },
+  { x: 560, y: 470 },
+  { x: 680, y: 360 },
+  { x: 820, y: 310 },
 ];
 let enemies     = [];
 let projectiles = [];  // { type, x, y, vx, vy, r, dmg, angle, bounces, pierced, slowDur, splashR }
@@ -337,8 +385,9 @@ function wlvl(weaponId) {
   return (player.weapons[weaponId] || 1) - 1; // 0-based index into stat arrays
 }
 
-function collidesWithObstacles(x, y, r) {
-  for (const o of obstacles) {
+function collidesWithObstacles(x, y, r, checkPond = false) {
+  const list = checkPond ? [...obstacles, ...POND_OBSTACLES] : obstacles;
+  for (const o of list) {
     const cx = Math.max(o.x, Math.min(o.x + o.w, x));
     const cy = Math.max(o.y, Math.min(o.y + o.h, y));
     if (Math.hypot(cx - x, cy - y) < r) return true;
@@ -357,15 +406,16 @@ function spawnParticles(x, y, color, count = 6) {
   }
 }
 
-function spawnOneEnemy(waveNum, safeAngle, halfForbidden, allowedArc, type) {
-  let x, y, tries = 0;
-  do {
-    const angle = safeAngle + halfForbidden + rand(0, allowedArc);
-    const dist  = rand(CONFIG.spawnMinDist, CONFIG.spawnMaxDist);
-    x = Math.max(20, Math.min(CONFIG.mapWidth  - 20, player.x + Math.cos(angle) * dist));
-    y = Math.max(20, Math.min(CONFIG.mapHeight - 20, player.y + Math.sin(angle) * dist));
-    tries++;
-  } while (collidesWithObstacles(x, y, 15) && tries < 10);
+function spawnOneEnemy(waveNum, type) {
+  // Kies een vaste spawnpunt dat ver genoeg van de speler ligt
+  const minDist = CONFIG.spawnMinDist;
+  const far = ENEMY_SPAWN_POINTS.filter(p =>
+    Math.hypot(p.x - player.x, p.y - player.y) >= minDist
+  );
+  const pool = far.length > 0 ? far : ENEMY_SPAWN_POINTS;
+  const sp = pool[Math.floor(Math.random() * pool.length)];
+  const x = sp.x + rand(-12, 12);
+  const y = sp.y + rand(-12, 12);
   const tier = Math.floor(Math.random() * waveNum);
   const tDef = ENEMY_TYPES[type];
   const hpMult = type === 'bossGoose' ? 3 + waveNum / 5 : tDef.hpMult;
@@ -386,35 +436,23 @@ function spawnEnemiesForWave(waveNum) {
   const isBossWave = waveNum % 5 === 0;
   graceTimer = isBossWave ? 1.5 : 1.0;
 
-  // Kies de safe sector richting de meeste open ruimte (weg van de dichtstbijzijnde kaartrand).
-  const margins = [
-    { angle: Math.PI,      dist: player.x },
-    { angle: 0,            dist: CONFIG.mapWidth  - player.x },
-    { angle: Math.PI / 2,  dist: CONFIG.mapHeight - player.y },
-    { angle: -Math.PI / 2, dist: player.y },
-  ];
-  margins.sort((a, b) => b.dist - a.dist);
-  const safeAngle     = margins[0].angle + rand(-Math.PI / 6, Math.PI / 6);
-  const halfForbidden = Math.min(Math.PI * 4 / 9, Math.PI / 3 + (waveNum - 1) * 0.018);
-  const allowedArc    = Math.PI * 2 - halfForbidden * 2;
-
   if (isBossWave) {
     const bossCount = waveNum / 5;
     for (let b = 0; b < bossCount; b++)
-      spawnOneEnemy(waveNum, safeAngle, halfForbidden, allowedArc, 'bossGoose');
+      spawnOneEnemy(waveNum, 'bossGoose');
     playSound(sfxBaasgans);
     waveMessage = { text: 'ALARM: ALPHA-MALE!', timer: 1.5 };
     const extraCount = Math.max(1, Math.floor(waveNum * 0.4));
     for (let i = 0; i < extraCount; i++) {
       const typePool = ['normal', ...(waveNum >= 2 ? ['tank'] : [])];
       const type = typePool[Math.floor(Math.random() * typePool.length)];
-      spawnOneEnemy(waveNum, safeAngle, halfForbidden, allowedArc, type);
+      spawnOneEnemy(waveNum, type);
     }
   } else {
     for (let i = 0; i < waveNum; i++) {
       const typePool = ['normal', ...(waveNum >= 2 ? ['tank'] : []), ...(waveNum >= 3 ? ['flyer'] : [])];
       const type = typePool[Math.floor(Math.random() * typePool.length)];
-      spawnOneEnemy(waveNum, safeAngle, halfForbidden, allowedArc, type);
+      spawnOneEnemy(waveNum, type);
     }
   }
 }
@@ -461,8 +499,16 @@ function upgradeDesc(id, level) {
 
 // ─── Reset ────────────────────────────────────────────────────────────────────
 function resetGame() {
+  // Kies een spawnpunt dat aantoonbaar vrij is van obstakels
+  const shuffled = [...PLAYER_SPAWN_POINTS].sort(() => Math.random() - 0.5);
+  let sp = shuffled[0];
+  for (const candidate of shuffled) {
+    if (!collidesWithObstacles(candidate.x, candidate.y, CONFIG.playerRadius, true)) {
+      sp = candidate; break;
+    }
+  }
   Object.assign(player, {
-    x: CANVAS_W / 2, y: CANVAS_H / 2,
+    x: sp.x, y: sp.y,
     hp: CONFIG.playerHp, maxHp: CONFIG.playerHp,
     speed: CONFIG.playerSpeed,
     facingAngle: 0, invincible: 0,
@@ -539,8 +585,8 @@ function update(dt) {
   if (dx !== 0 && dy !== 0) { dx *= 0.707; dy *= 0.707; }
   const nx = Math.max(player.r, Math.min(CONFIG.mapWidth  - player.r, player.x + dx * player.speed * dt));
   const ny = Math.max(player.r, Math.min(CONFIG.mapHeight - player.r, player.y + dy * player.speed * dt));
-  if (!collidesWithObstacles(nx, player.y, player.r)) player.x = nx;
-  if (!collidesWithObstacles(player.x, ny, player.r)) player.y = ny;
+  if (!collidesWithObstacles(nx, player.y, player.r, true)) player.x = nx;
+  if (!collidesWithObstacles(player.x, ny, player.r, true)) player.y = ny;
   player.vx = dx * player.speed;
   player.vy = dy * player.speed;
 
@@ -1139,34 +1185,292 @@ function drawProjectiles() {
   }
 }
 
+// ─── Background ──────────────────────────────────────────────────────────────
+function drawBackground() {
+  if (mapImage.complete && mapImage.naturalWidth > 0) {
+    ctx.drawImage(mapImage, 0, 0, CONFIG.mapWidth, CONFIG.mapHeight);
+    // Dek het Gemini-watermerk rechtsonder af met gebouwkleur
+    ctx.fillStyle = '#b05820';
+    ctx.fillRect(1510, 1148, 90, 52);
+    return;
+  }
+  // Fallback zolang afbeelding nog laadt
+  ctx.fillStyle = '#52b03a';
+  ctx.fillRect(0, 0, CONFIG.mapWidth, CONFIG.mapHeight);
+}
+
+function drawBackgroundOLD_UNUSED() {
+  const MW = CONFIG.mapWidth, MH = CONFIG.mapHeight;
+
+  // Gras (egaal groen met subtiele horizontale gazonstrepering)
+  ctx.fillStyle = '#52b03a';
+  ctx.fillRect(0, 0, MW, MH);
+  ctx.fillStyle = 'rgba(0,0,0,0.025)';
+  for (let gy = 0; gy < MH; gy += 40)
+    ctx.fillRect(0, gy, MW, 20);
+
+  // Schaduwen van gebouwen op gras (getekend vroeg, vóór alles)
+  let sh;
+  sh = ctx.createLinearGradient(135, 0, 175, 0);
+  sh.addColorStop(0, 'rgba(0,0,0,0.32)'); sh.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = sh; ctx.fillRect(135, 65, 40, 935);
+
+  sh = ctx.createLinearGradient(0, 65, 0, 105);
+  sh.addColorStop(0, 'rgba(0,0,0,0.28)'); sh.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = sh; ctx.fillRect(175, 65, 1365, 40);
+
+  sh = ctx.createLinearGradient(1540, 0, 1500, 0);
+  sh.addColorStop(0, 'rgba(0,0,0,0.26)'); sh.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = sh; ctx.fillRect(1500, 65, 40, 1035);
+
+  sh = ctx.createLinearGradient(0, 1056, 0, 1016);
+  sh.addColorStop(0, 'rgba(0,0,0,0.22)'); sh.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = sh; ctx.fillRect(220, 1016, 1320, 40);
+
+  // Kronkelpad — vloeiende S-bocht met C1-continuïteit bij elke knik
+  // Punten zijn berekend zodat de tangentvectoren doorlopen (geen hoeken)
+  function tracePad() {
+    ctx.beginPath();
+    ctx.moveTo(135, 750);
+    ctx.bezierCurveTo(178, 832, 268, 946, 382, 988);
+    ctx.bezierCurveTo(496, 1030, 550, 1010, 584, 958);
+    ctx.bezierCurveTo(618, 906, 668, 826, 756, 756);
+    ctx.bezierCurveTo(844, 686, 940, 630, 1060, 576);
+    ctx.bezierCurveTo(1180, 522, 1360, 480, 1540, 462);
+  }
+  ctx.save();
+  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.lineWidth = 90; ctx.strokeStyle = '#A89060'; tracePad(); ctx.stroke();
+  ctx.lineWidth = 78; ctx.strokeStyle = '#D4C4A8'; tracePad(); ctx.stroke();
+  // Subtiele middenlijn
+  ctx.restore();
+
+  // Bomen (vóór gebouw getekend zodat gebouw erover staat)
+  function drawTree(tx, ty) {
+    ctx.fillStyle = '#6D4C41'; ctx.fillRect(tx - 5, ty, 10, 30);
+    ctx.fillStyle = '#145A32';
+    ctx.beginPath(); ctx.arc(tx, ty, 32, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#1E8449';
+    ctx.beginPath(); ctx.arc(tx - 8, ty - 9, 22, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#27AE60';
+    ctx.beginPath(); ctx.arc(tx + 7, ty - 11, 18, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#2ECC71';
+    ctx.beginPath(); ctx.arc(tx - 1, ty - 16, 12, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#58D68D';
+    ctx.beginPath(); ctx.arc(tx + 2, ty - 19, 7, 0, Math.PI * 2); ctx.fill();
+  }
+  drawTree(950, 720); drawTree(1340, 620); drawTree(680, 280);
+  drawTree(1200, 800); drawTree(820, 900);
+
+  // Gebouw (links, oranje baksteen)
+  ctx.fillStyle = '#E67E22';
+  ctx.fillRect(0, 0, 135, 920);
+  ctx.save();
+  ctx.beginPath(); ctx.rect(0, 0, 135, 920); ctx.clip();
+  for (let row = 0; row < 920; row += 18) {
+    const off = ((row / 18 | 0) % 2) * 22;
+    ctx.fillStyle = '#C0522B';
+    for (let col = off - 44; col < 135; col += 44)
+      ctx.fillRect(col + 2, row + 2, 40, 13);
+  }
+  ctx.restore();
+  for (let wy = 72; wy < 820; wy += 100) {
+    ctx.fillStyle = '#FDFEFE'; ctx.fillRect(10, wy, 112, 72);
+    ctx.fillStyle = '#5DADE2'; ctx.fillRect(14, wy + 4, 104, 64);
+    ctx.strokeStyle = '#FDFEFE'; ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(66, wy + 4); ctx.lineTo(66, wy + 68); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(14, wy + 36); ctx.lineTo(118, wy + 36); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.28)'; ctx.fillRect(16, wy + 6, 34, 18);
+  }
+  // Entree deur
+  ctx.fillStyle = '#FDFEFE'; ctx.fillRect(8, 832, 119, 88);
+  ctx.fillStyle = '#AED6F1'; ctx.fillRect(12, 836, 111, 84);
+  ctx.strokeStyle = '#FDFEFE'; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(67, 836); ctx.lineTo(67, 920); ctx.stroke();
+  ctx.fillStyle = 'rgba(255,255,255,0.22)'; ctx.fillRect(14, 838, 38, 22);
+  ctx.fillStyle = '#F1C40F'; ctx.fillRect(72, 880, 12, 3); // deurhendel
+  ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.fillRect(128, 0, 7, 920); // schaduw
+
+  // Vijver (linksonder) — gradient schaduw voor zachte inbedding in gras
+  sh = ctx.createRadialGradient(95, 1058, 108, 95, 1058, 148);
+  sh.addColorStop(0, 'rgba(0,0,0,0)'); sh.addColorStop(1, 'rgba(0,0,0,0.28)');
+  ctx.fillStyle = sh;
+  ctx.beginPath(); ctx.ellipse(95, 1058, 148, 158, 0, 0, Math.PI * 2); ctx.fill();
+  // Stenen rand
+  ctx.fillStyle = '#8D9EA0';
+  ctx.beginPath(); ctx.ellipse(95, 1058, 124, 138, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#95A5A6';
+  ctx.beginPath(); ctx.ellipse(95, 1058, 120, 134, 0, 0, Math.PI * 2); ctx.fill();
+  // Water
+  const pg = ctx.createRadialGradient(82, 1040, 10, 95, 1058, 115);
+  pg.addColorStop(0, '#7EC8E3'); pg.addColorStop(0.55, '#2196F3'); pg.addColorStop(1, '#0D47A1');
+  ctx.fillStyle = pg;
+  ctx.beginPath(); ctx.ellipse(95, 1058, 113, 127, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = 'rgba(255,255,255,0.28)'; ctx.lineWidth = 1.5;
+  for (let i = 1; i <= 4; i++) {
+    ctx.beginPath(); ctx.ellipse(95, 1058, 20 * i, 18 * i, 0, 0, Math.PI * 2); ctx.stroke();
+  }
+  ctx.fillStyle = '#27AE60'; ctx.beginPath(); ctx.ellipse(72, 1038, 13, 9, -0.4, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#E8A0A8'; ctx.beginPath(); ctx.arc(72, 1035, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#F8E799'; ctx.beginPath(); ctx.arc(72, 1035, 2.5, 0, Math.PI * 2); ctx.fill();
+
+  // Bovenmuur (oranje baksteen + ramen)
+  ctx.fillStyle = '#E67E22';
+  ctx.fillRect(135, 0, 1465, 65);
+  ctx.save();
+  ctx.beginPath(); ctx.rect(135, 0, 1465, 65); ctx.clip();
+  for (let col = 135; col < 1600; col += 50) {
+    const off = ((col - 135) / 50 | 0) % 2 === 0 ? 0 : 25;
+    ctx.fillStyle = '#C0522B';
+    ctx.fillRect(col + 2, 2, 46, 26);
+    ctx.fillRect(col + 2 + off, 30, 46, 30);
+  }
+  ctx.restore();
+  for (let wx = 185; wx < 1520; wx += 115) {
+    ctx.fillStyle = '#FDFEFE'; ctx.fillRect(wx, 4, 88, 57);
+    ctx.fillStyle = '#5DADE2'; ctx.fillRect(wx + 4, 8, 80, 49);
+    ctx.strokeStyle = '#FDFEFE'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(wx + 44, 8); ctx.lineTo(wx + 44, 57); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(wx + 4, 32); ctx.lineTo(wx + 84, 32); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,0.26)'; ctx.fillRect(wx + 6, 10, 28, 14);
+  }
+  ctx.fillStyle = 'rgba(0,0,0,0.14)'; ctx.fillRect(135, 61, 1465, 6);
+
+  // Rechterrand (heg)
+  ctx.fillStyle = '#145A32'; ctx.fillRect(1540, 65, 60, 1035);
+  ctx.fillStyle = '#196F3D';
+  for (let hy = 78; hy < 1100; hy += 30) {
+    ctx.beginPath(); ctx.arc(1552, hy, 16, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(1572, hy + 15, 16, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.fillStyle = '#1E8449';
+  for (let hy = 81; hy < 1100; hy += 30) {
+    ctx.beginPath(); ctx.arc(1554, hy, 9, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(1574, hy + 15, 9, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.fillStyle = '#27AE60';
+  for (let hy = 83; hy < 1100; hy += 30) {
+    ctx.beginPath(); ctx.arc(1555, hy, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(1575, hy + 15, 5, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // Weg (onderaan)
+  ctx.fillStyle = '#626567'; ctx.fillRect(135, 1100, 1465, 100);
+  ctx.fillStyle = '#AAB2B9'; ctx.fillRect(135, 1100, 1465, 7);
+  ctx.fillStyle = '#F0F3F4';
+  for (let wx = 180; wx < 1600; wx += 60) ctx.fillRect(wx, 1148, 36, 5);
+
+  // Auto's (op weg)
+  const cars = [
+    { x: 1048, y: 1108, color: '#E74C3C', dark: '#C0392B' },
+    { x: 1198, y: 1108, color: '#3498DB', dark: '#2980B9' },
+    { x: 1378, y: 1108, color: '#2ECC71', dark: '#1E8449' },
+  ];
+  for (const car of cars) {
+    const { x: ax, y: ay, color, dark } = car;
+    ctx.fillStyle = dark;  ctx.fillRect(ax, ay, 90, 36);
+    ctx.fillStyle = color; ctx.fillRect(ax + 2, ay + 2, 86, 24);
+    ctx.fillStyle = '#AED6F1';
+    ctx.fillRect(ax + 8,  ay + 4, 28, 16);
+    ctx.fillRect(ax + 54, ay + 4, 28, 16);
+    ctx.fillStyle = '#1C1C1C';
+    ctx.beginPath(); ctx.arc(ax + 15, ay + 37, 7, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(ax + 75, ay + 37, 7, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#808080';
+    ctx.beginPath(); ctx.arc(ax + 15, ay + 37, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.beginPath(); ctx.arc(ax + 75, ay + 37, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#F9E79F'; ctx.fillRect(ax + 2,  ay + 8, 5, 8);
+    ctx.fillStyle = '#E74C3C'; ctx.fillRect(ax + 83, ay + 8, 5, 8);
+  }
+
+  // Planten strip (onderaan) — start na vijver (x=220), bollen steken boven rand uit
+  ctx.fillStyle = '#1D6A35'; ctx.fillRect(220, 1062, 495, 38);
+  const flwc = ['#E74C3C', '#F39C12', '#9B59B6', '#E91E63', '#F1C40F'];
+  for (let px = 226; px < 714; px += 26) {
+    ctx.fillStyle = '#196030';
+    ctx.beginPath(); ctx.arc(px, 1060, 14, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#27AE60';
+    ctx.beginPath(); ctx.arc(px, 1057, 11, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#2ECC71';
+    ctx.beginPath(); ctx.arc(px - 3, 1054, 7, 0, Math.PI * 2); ctx.fill();
+  }
+  for (let px = 238; px < 714; px += 42) {
+    ctx.fillStyle = flwc[(px / 42 | 0) % flwc.length];
+    ctx.beginPath(); ctx.arc(px, 1050, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#F9E79F';
+    ctx.beginPath(); ctx.arc(px, 1050, 2.5, 0, Math.PI * 2); ctx.fill();
+  }
+
+  // Bankjes (horizontaal)
+  for (const b of [{ x: 305, y: 238, w: 75, h: 16 }, { x: 455, y: 648, w: 75, h: 16 }]) {
+    ctx.fillStyle = '#4E342E'; ctx.fillRect(b.x - 2, b.y - 2, b.w + 4, b.h + 10);
+    ctx.fillStyle = '#8D5524';
+    for (let sx = b.x; sx < b.x + b.w - 2; sx += 12)
+      ctx.fillRect(sx + 1, b.y + 1, 10, b.h - 2);
+    ctx.fillStyle = '#5D4037';
+    ctx.fillRect(b.x + 3, b.y + b.h, 8, 8);
+    ctx.fillRect(b.x + b.w - 11, b.y + b.h, 8, 8);
+  }
+  // Bank (verticaal)
+  { const b = { x: 558, y: 415, w: 16, h: 85 };
+    ctx.fillStyle = '#4E342E'; ctx.fillRect(b.x - 2, b.y - 2, b.w + 10, b.h + 4);
+    ctx.fillStyle = '#8D5524';
+    for (let sy = b.y; sy < b.y + b.h - 2; sy += 12)
+      ctx.fillRect(b.x + 1, sy + 1, b.w - 2, 10);
+    ctx.fillStyle = '#5D4037';
+    ctx.fillRect(b.x + b.w, b.y + 3, 8, 8);
+    ctx.fillRect(b.x + b.w, b.y + b.h - 11, 8, 8);
+  }
+
+  // Picknicktafel
+  { const tx = 878, ty = 286;
+    ctx.fillStyle = '#5D4037'; ctx.fillRect(tx, ty + 10, 78, 8);
+    ctx.fillStyle = '#795548'; ctx.fillRect(tx + 2, ty + 11, 74, 6);
+    ctx.fillStyle = '#4E342E';
+    ctx.fillRect(tx + 6,  ty + 18, 6, 28);
+    ctx.fillRect(tx + 66, ty + 18, 6, 28);
+    ctx.fillStyle = '#795548';
+    ctx.fillRect(tx - 14, ty + 20, 14, 6); ctx.fillRect(tx + 78, ty + 20, 14, 6);
+    ctx.fillRect(tx - 14, ty + 28, 14, 6); ctx.fillRect(tx + 78, ty + 28, 14, 6);
+  }
+
+  // Bloembakken
+  function drawFlowerBox(fx, fy, fw, fh) {
+    ctx.fillStyle = '#95A5A6'; ctx.fillRect(fx, fy, fw, fh);
+    ctx.fillStyle = '#7F8C8D'; ctx.fillRect(fx + 3, fy + 3, fw - 6, fh - 6);
+    ctx.fillStyle = '#6D4C41'; ctx.fillRect(fx + 5, fy + 5, fw - 10, fh - 10);
+    ctx.fillStyle = '#1E8449';
+    for (let px = fx + 10; px < fx + fw - 8; px += 13)
+      ctx.beginPath(), ctx.arc(px, fy + fh * 0.45, 12, 0, Math.PI * 2), ctx.fill();
+    ctx.fillStyle = '#27AE60';
+    for (let px = fx + 13; px < fx + fw - 8; px += 13)
+      ctx.beginPath(), ctx.arc(px, fy + fh * 0.38, 8, 0, Math.PI * 2), ctx.fill();
+    const bfc = ['#E74C3C', '#F39C12', '#9B59B6', '#E91E63'];
+    let bi = 0;
+    for (let px = fx + 14; px < fx + fw - 10; px += 16, bi++) {
+      ctx.fillStyle = bfc[bi % bfc.length];
+      ctx.beginPath(); ctx.arc(px, fy + fh * 0.28, 5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#F9E79F';
+      ctx.beginPath(); ctx.arc(px, fy + fh * 0.28, 2.5, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  drawFlowerBox(1138, 585, 72, 72);
+  drawFlowerBox(748, 798, 58, 58);
+
+  // Map grens
+  ctx.strokeStyle = 'rgba(0,0,0,0.35)'; ctx.lineWidth = 4;
+  ctx.strokeRect(0, 0, MW, MH);
+} // einde drawBackgroundOLD_UNUSED
+
 // ─── Drawing ─────────────────────────────────────────────────────────────────
 function draw() {
-  // Camera: speler in midden, geclampt aan map-grenzen
   camera.x = Math.max(0, Math.min(CONFIG.mapWidth  - CANVAS_W, player.x - CANVAS_W / 2));
   camera.y = Math.max(0, Math.min(CONFIG.mapHeight - CANVAS_H, player.y - CANVAS_H / 2));
 
-  ctx.fillStyle = '#1d3d08';
-  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
-
-  // ── World space (camera offset) ──
   ctx.save();
   ctx.translate(-camera.x, -camera.y);
 
-  ctx.strokeStyle = 'rgba(255,255,255,0.04)'; ctx.lineWidth = 1;
-  for (let gx = 0; gx < CONFIG.mapWidth;  gx += 40) { ctx.beginPath(); ctx.moveTo(gx,0); ctx.lineTo(gx,CONFIG.mapHeight); ctx.stroke(); }
-  for (let gy = 0; gy < CONFIG.mapHeight; gy += 40) { ctx.beginPath(); ctx.moveTo(0,gy); ctx.lineTo(CONFIG.mapWidth,gy); ctx.stroke(); }
-
-  // Map-grens zichtbaar maken
-  ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 3;
-  ctx.strokeRect(0, 0, CONFIG.mapWidth, CONFIG.mapHeight);
-
-  // Obstakels
-  for (const o of obstacles) {
-    ctx.fillStyle = '#4a3728';
-    ctx.fillRect(o.x, o.y, o.w, o.h);
-    ctx.strokeStyle = '#6d4c41'; ctx.lineWidth = 2;
-    ctx.strokeRect(o.x, o.y, o.w, o.h);
-  }
+  drawBackground();
 
   for (const d of deathEffects) {
     ctx.globalAlpha = (d.life / d.maxLife) * 0.7;
@@ -1208,6 +1512,20 @@ function draw() {
     ctx.restore();
   }
 
+  // ── Debug: obstakels en spawnpunten (world space) ──
+  if (DEBUG) {
+    ctx.globalAlpha = 0.35;
+    ctx.fillStyle = '#ff0000';
+    for (const o of obstacles) ctx.fillRect(o.x, o.y, o.w, o.h);
+    ctx.fillStyle = '#0066ff';
+    for (const o of POND_OBSTACLES) ctx.fillRect(o.x, o.y, o.w, o.h);
+    ctx.fillStyle = '#00ff00';
+    for (const p of ENEMY_SPAWN_POINTS) { ctx.beginPath(); ctx.arc(p.x, p.y, 10, 0, Math.PI*2); ctx.fill(); }
+    ctx.fillStyle = '#ffff00';
+    for (const p of PLAYER_SPAWN_POINTS) { ctx.beginPath(); ctx.arc(p.x, p.y, 14, 0, Math.PI*2); ctx.fill(); }
+    ctx.globalAlpha = 1;
+  }
+
   ctx.restore();
   // ── Screen space ──
 
@@ -1225,13 +1543,14 @@ function draw() {
   elWave.textContent  = wave;
   elTimer.textContent = Math.floor(elapsed);
 
-  // ── Debug overlay (verwijder als freeze-probleem opgelost is) ──
+  // ── Debug overlay (screen space) ──
   if (DEBUG) {
   const bossProjs = projectiles.filter(p => p.fromBoss).length;
   ctx.save();
   ctx.font = '11px monospace';
   ctx.textAlign = 'left';
   const dbgLines = [
+    `pos:       x=${Math.round(player.x)}  y=${Math.round(player.y)}`,
     `wave:      ${wave}`,
     `enemies:   ${enemies.length}`,
     `proj:      ${projectiles.length - bossProjs} speler / ${bossProjs} boss`,

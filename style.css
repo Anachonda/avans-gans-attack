@@ -17,7 +17,16 @@ body {
 
 #ui {
   position: relative;
-  display: inline-block;
+  /* ~70% van de viewport-hoogte, max 85% breedte, 4:3 verhouding */
+  width: min(85vw, calc(70vh * 4 / 3));
+}
+
+#ui #game-canvas {
+  width: 100%;
+  height: auto;
+  display: block;
+  image-rendering: -webkit-optimize-contrast; /* vermindert waas bij opschalen */
+  image-rendering: crisp-edges;
 }
 
 #hud {
