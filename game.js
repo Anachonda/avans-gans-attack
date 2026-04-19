@@ -160,7 +160,7 @@ const ENEMY_TYPES = {
   normal: { hpMult: 1.0, speedMult: 1.0, sizeMult: 1.0,  color: null,      ignoresObstacles: false },
   tank:   { hpMult: 3.5, speedMult: 0.6, sizeMult: 1.5,  color: '#8d6e14', ignoresObstacles: false },
   flyer:    { hpMult: 0.7, speedMult: 1.4,  sizeMult: 0.85, color: '#9b59b6', ignoresObstacles: true  },
-  bossGoose:{ hpMult: 4,   speedMult: 1.5,  sizeMult: 2.6,  color: '#8B0000', ignoresObstacles: false },
+  bossGoose:{ hpMult: 4,   speedMult: 1.1,  sizeMult: 2.6,  color: '#8B0000', ignoresObstacles: false },
 };
 
 // ─── Weapon definitions ───────────────────────────────────────────────────────
@@ -449,7 +449,7 @@ function spawnEnemiesForWave(waveNum) {
       spawnOneEnemy(waveNum, type);
     }
   } else {
-    for (let i = 0; i < waveNum; i++) {
+    for (let i = 0; i < Math.max(3, waveNum); i++) {
       const typePool = ['normal', ...(waveNum >= 2 ? ['tank'] : []), ...(waveNum >= 3 ? ['flyer'] : [])];
       const type = typePool[Math.floor(Math.random() * typePool.length)];
       spawnOneEnemy(waveNum, type);
