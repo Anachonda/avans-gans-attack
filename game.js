@@ -42,7 +42,7 @@ const CONFIG = {
   volumeAuw:       1.0,
   volumeVerlies:       1.0,
   volumeGanzenwinnen:  1.0,
-  volumeParasol:   1.0,
+  volumeParaplu:   1.0,
   volumeGum:       1.0,
   volumeGans:      1.0,
   volumeBoek:      0.5,
@@ -102,7 +102,7 @@ const sfxGanzenwinnen = new Audio('Sounds/Ganzenwinnen.wav');
 sfxAuw.volume          = CONFIG.volumeAuw;
 sfxVerlies.volume      = CONFIG.volumeVerlies;
 sfxGanzenwinnen.volume = CONFIG.volumeGanzenwinnen;
-const sfxParasol = new Audio('Sounds/Paraplu.wav');
+const sfxParaplu = new Audio('Sounds/Paraplu.wav');
 const sfxGum     = new Audio('Sounds/Gum.wav');
 const sfxGans    = new Audio('Sounds/Gans.wav');
 const sfxBoek    = new Audio('Sounds/Boek.wav');
@@ -110,7 +110,7 @@ const sfxPasser  = new Audio('Sounds/Passer1.wav');
 const sfxLiniaal = new Audio('Sounds/Lineaal.wav');
 const sfxRugzak  = new Audio('Sounds/Rugzak.wav');
 const sfxThermos = new Audio('Sounds/Thermos.wav');
-sfxParasol.volume = CONFIG.volumeParasol;
+sfxParaplu.volume = CONFIG.volumeParaplu;
 sfxGum.volume     = CONFIG.volumeGum;
 sfxGans.volume    = CONFIG.volumeGans;
 sfxBoek.volume    = CONFIG.volumeBoek;
@@ -130,7 +130,7 @@ function playSound(sfx) {
   clone.play();
 }
 
-const WEAPON_SFX = { parasol: sfxParasol, gum: sfxGum, gans: sfxGans,
+const WEAPON_SFX = { paraplu: sfxParaplu, gum: sfxGum, gans: sfxGans,
                      boek: sfxBoek, passer: sfxPasser, liniaal: sfxLiniaal,
                      rugzak: sfxRugzak, thermos: sfxThermos };
 function playSfx(id) { if (WEAPON_SFX[id]) playSound(WEAPON_SFX[id]); }
@@ -166,8 +166,8 @@ const ENEMY_TYPES = {
 // ─── Weapon definitions ───────────────────────────────────────────────────────
 // Each weapon has levels 1-5. Stats are arrays indexed by (level - 1).
 const WEAPON_DEFS = {
-  parasol: {
-    label: 'Parasol',
+  paraplu: {
+    label: 'Paraplu',
     maxLevel: 5,
     // [reach, arc, dmg, rate, special]
     reach:  [75,  82,  90,  98, 110],
@@ -246,11 +246,11 @@ const player = {
   vx: 0, vy: 0,   // bewegingsrichting voor boss-intercept
 
   // Active weapons: weaponId -> level (1-based)
-  weapons: { parasol: 1 },
+  weapons: { paraplu: 1 },
 
   // Per-weapon cooldowns / active state
   cooldowns: {},
-  swing:     null,   // parasol swing { angle, progress, duration, hitSet }
+  swing:     null,   // paraplu swing { angle, progress, duration, hitSet }
   spinSwing: null,   // passer spin   { progress, duration, hitSet }
   liniaalFlash: null, // { angle, progress, duration, hitSet }
 };
@@ -486,7 +486,7 @@ function upgradeDesc(id, level) {
   const i = level - 1;
   const d = WEAPON_DEFS[id];
   switch (id) {
-    case 'parasol':  return `Schade ${d.dmg[i]}, bereik ${d.reach[i]}px${d.double[i] ? ', dubbele zwaai!' : ''}`;
+    case 'paraplu':  return `Schade ${d.dmg[i]}, bereik ${d.reach[i]}px${d.double[i] ? ', dubbele zwaai!' : ''}`;
     case 'boek':     return `Schade ${d.dmg[i]}, ${d.rate[i].toFixed(1)}/s${d.piercing[i] ? ', doorboorend' : ''}`;
     case 'passer':   return `Schade ${d.dmg[i]}, elke ${d.interval[i]}s rondzwaai`;
     case 'gum':      return `Schade ${d.dmg[i]}, ${d.rate[i].toFixed(1)}/s${d.bounces[i] > 0 ? `, ${d.bounces[i]}x bounce` : ''}`;
@@ -512,7 +512,7 @@ function resetGame() {
     hp: CONFIG.playerHp, maxHp: CONFIG.playerHp,
     speed: CONFIG.playerSpeed,
     facingAngle: 0, invincible: 0,
-    weapons: { parasol: 1 },
+    weapons: { [Object.keys(WEAPON_DEFS)[Math.floor(Math.random() * Object.keys(WEAPON_DEFS).length)]]: 1 },
     cooldowns: {},
     swing: null, spinSwing: null, liniaalFlash: null,
   });
@@ -597,23 +597,23 @@ function update(dt) {
 
   const cd = player.cooldowns;
 
-  // ── Parasol ──
-  const pLvl = wlvl('parasol');
-  const pDef = WEAPON_DEFS.parasol;
+  // ── Paraplu ──
+  const pLvl = wlvl('paraplu');
+  const pDef = WEAPON_DEFS.paraplu;
   if (player.swing) {
     player.swing.progress += dt / player.swing.duration;
     if (player.swing.progress >= 1) player.swing = null;
   }
-  cd.parasol = (cd.parasol || 0) - dt;
-  if (cd.parasol <= 0 && !player.swing && nearest) {
+  cd.paraplu = (cd.paraplu || 0) - dt;
+  if (cd.paraplu <= 0 && !player.swing && nearest) {
     const angle = Math.atan2(nearest.y - player.y, nearest.x - player.x);
     player.swing = { angle, progress: 0, duration: 0.4, hitSet: new Set() };
-    playSfx('parasol');
+    playSfx('paraplu');
     if (pDef.double[pLvl]) {
       // Queue a second swing shortly after
       player.swing.double = true;
     }
-    cd.parasol = jitter(1 / pDef.rate[pLvl]);
+    cd.paraplu = jitter(1 / pDef.rate[pLvl]);
   }
 
   // ── Passer ──
@@ -818,7 +818,7 @@ function update(dt) {
 
     let killed = false;
 
-    // Parasol
+    // Paraplu
     if (player.swing && !player.swing.hitSet.has(i)) {
       const dist = Math.hypot(e.x - player.x, e.y - player.y);
       if (dist < pDef.reach[pLvl] + e.r) {
@@ -1079,9 +1079,9 @@ function drawStudent() {
 function drawParasol() {
   if (!player.swing) return;
   const { x, y, swing } = player;
-  const pLvl = wlvl('parasol');
-  const reach = WEAPON_DEFS.parasol.reach[pLvl];
-  const arc   = WEAPON_DEFS.parasol.arc[pLvl];
+  const pLvl = wlvl('paraplu');
+  const reach = WEAPON_DEFS.paraplu.reach[pLvl];
+  const arc   = WEAPON_DEFS.paraplu.arc[pLvl];
   const { angle, progress } = swing;
   const half = arc / 2;
 
