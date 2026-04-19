@@ -598,22 +598,23 @@ function update(dt) {
   const cd = player.cooldowns;
 
   // ── Paraplu ──
-  const pLvl = wlvl('paraplu');
-  const pDef = WEAPON_DEFS.paraplu;
-  if (player.swing) {
-    player.swing.progress += dt / player.swing.duration;
-    if (player.swing.progress >= 1) player.swing = null;
-  }
-  cd.paraplu = (cd.paraplu || 0) - dt;
-  if (cd.paraplu <= 0 && !player.swing && nearest) {
-    const angle = Math.atan2(nearest.y - player.y, nearest.x - player.x);
-    player.swing = { angle, progress: 0, duration: 0.4, hitSet: new Set() };
-    playSfx('paraplu');
-    if (pDef.double[pLvl]) {
-      // Queue a second swing shortly after
-      player.swing.double = true;
+  if (player.weapons.paraplu) {
+    const pLvl = wlvl('paraplu');
+    const pDef = WEAPON_DEFS.paraplu;
+    if (player.swing) {
+      player.swing.progress += dt / player.swing.duration;
+      if (player.swing.progress >= 1) player.swing = null;
     }
-    cd.paraplu = jitter(1 / pDef.rate[pLvl]);
+    cd.paraplu = (cd.paraplu || 0) - dt;
+    if (cd.paraplu <= 0 && !player.swing && nearest) {
+      const angle = Math.atan2(nearest.y - player.y, nearest.x - player.x);
+      player.swing = { angle, progress: 0, duration: 0.4, hitSet: new Set() };
+      playSfx('paraplu');
+      if (pDef.double[pLvl]) {
+        player.swing.double = true;
+      }
+      cd.paraplu = jitter(1 / pDef.rate[pLvl]);
+    }
   }
 
   // ── Passer ──
