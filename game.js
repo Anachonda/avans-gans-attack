@@ -598,9 +598,9 @@ function update(dt) {
   const cd = player.cooldowns;
 
   // ── Paraplu ──
+  const pLvl = wlvl('paraplu');
+  const pDef = WEAPON_DEFS.paraplu;
   if (player.weapons.paraplu) {
-    const pLvl = wlvl('paraplu');
-    const pDef = WEAPON_DEFS.paraplu;
     if (player.swing) {
       player.swing.progress += dt / player.swing.duration;
       if (player.swing.progress >= 1) player.swing = null;
