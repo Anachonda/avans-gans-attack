@@ -34,7 +34,8 @@ const CONFIG = {
 
   // Upgrades
   hpUpgrade:       15,    // Max HP +X per upgrade
-  speedUpgrade:    1.1,   // snelheid ×X per upgrade
+  speedUpgrade:    1.05,  // snelheid ×X per upgrade
+  diagUpgrade:     0.10,  // diagonaalbonus per upgrade (opgeteld bij diagMult)
   healUpgrade:     40,    // herstel X HP per upgrade
 
   // Audio volumes (0.0 – 1.0)
@@ -235,12 +236,15 @@ let wavePhase          = 'fighting';
 let waveMessage        = null;
 let betweenWavesTimer  = 0;
 let graceTimer         = 0;   // seconden waarbij vijanden op gereduceerde snelheid bewegen
+let debris             = [];
 
 const player = {
   x: CANVAS_W / 2, y: CANVAS_H / 2,
   r: CONFIG.playerRadius,
   hp: CONFIG.playerHp, maxHp: CONFIG.playerHp,
   speed: CONFIG.playerSpeed,
+  diagMult: 0.707,
+  fallTimer: 0,
   facingAngle: 0,
   invincible: 0,
   vx: 0, vy: 0,   // bewegingsrichting voor boss-intercept
@@ -283,6 +287,17 @@ const obstacles = [
   { x: 1272, y: 736,  w: 60,   h: 192  },
   // Picnictafel
   { x: 1066, y: 289,  w: 127,  h: 127  },
+];
+
+// ─── Debris (rommel op het schoolplein) ──────────────────────────────────────
+const DEBRIS_DEFS = [
+  { x: 350,  y: 320,  type: 'blikje',       angle: 0.4  },
+  { x: 820,  y: 590,  type: 'blikje',       angle: 1.8  },
+  { x: 1150, y: 760,  type: 'blikje',       angle: 2.6  },
+  { x: 510,  y: 290,  type: 'papierprop',   angle: 0.0  },
+  { x: 770,  y: 820,  type: 'papierprop',   angle: 1.5  },
+  { x: 1240, y: 490,  type: 'papierprop',   angle: 0.9  },
+  { x: 680,  y: 620,  type: 'bananenschil', angle: 0.5  },
 ];
 
 // Vijver + onderkant: alleen obstakel voor speler, ganzen spawnen hier juist
@@ -475,8 +490,10 @@ function buildUpgradePool() {
   // Stat upgrades
   pool.push({ weaponId: null, name: 'Max HP +15',     desc: 'Meer uithoudingsvermogen.',
     apply: () => { player.maxHp += CONFIG.hpUpgrade; player.hp = Math.min(player.hp + CONFIG.hpUpgrade, player.maxHp); } });
-  pool.push({ weaponId: null, name: 'Snellere benen', desc: 'Loop 10% sneller.',
+  pool.push({ weaponId: null, name: 'Snellere benen', desc: 'Loop 5% sneller.',
     apply: () => { player.speed *= CONFIG.speedUpgrade; } });
+  pool.push({ weaponId: null, name: 'Lenigheid',      desc: 'Minder snelheidsverlies in bochten en diagonaal.',
+    apply: () => { player.diagMult = Math.min(1.0, player.diagMult + CONFIG.diagUpgrade); } });
   pool.push({ weaponId: null, name: 'EHBO-kit',       desc: 'Herstel 40 HP.',
     apply: () => { player.hp = Math.min(player.hp + CONFIG.healUpgrade, player.maxHp); } });
   return pool;
@@ -511,6 +528,8 @@ function resetGame() {
     x: sp.x, y: sp.y,
     hp: CONFIG.playerHp, maxHp: CONFIG.playerHp,
     speed: CONFIG.playerSpeed,
+    diagMult: 0.707,
+    fallTimer: 0,
     facingAngle: 0, invincible: 0,
     weapons: { [Object.keys(WEAPON_DEFS)[Math.floor(Math.random() * Object.keys(WEAPON_DEFS).length)]]: 1 },
     cooldowns: {},
@@ -518,6 +537,7 @@ function resetGame() {
   });
   enemies = []; projectiles = []; particles = []; pickups = [];
   wave = 1; wavePhase = 'fighting'; waveMessage = null; betweenWavesTimer = 0; elapsed = 0; graceTimer = 0;
+  debris = DEBRIS_DEFS.map(d => ({ ...d, vx: 0, vy: 0, angularVel: 0, playerPushTimer: 0 }));
 }
 
 // ─── Kill helper ──────────────────────────────────────────────────────────────
@@ -577,18 +597,23 @@ function update(dt) {
   if (graceTimer > 0) graceTimer = Math.max(0, graceTimer - dt);
 
   // Movement
-  let dx = 0, dy = 0;
-  if (keys['ArrowLeft']  || keys['a'] || keys['A']) dx -= 1;
-  if (keys['ArrowRight'] || keys['d'] || keys['D']) dx += 1;
-  if (keys['ArrowUp']    || keys['w'] || keys['W']) dy -= 1;
-  if (keys['ArrowDown']  || keys['s'] || keys['S']) dy += 1;
-  if (dx !== 0 && dy !== 0) { dx *= 0.707; dy *= 0.707; }
-  const nx = Math.max(player.r, Math.min(CONFIG.mapWidth  - player.r, player.x + dx * player.speed * dt));
-  const ny = Math.max(player.r, Math.min(CONFIG.mapHeight - player.r, player.y + dy * player.speed * dt));
-  if (!collidesWithObstacles(nx, player.y, player.r, true)) player.x = nx;
-  if (!collidesWithObstacles(player.x, ny, player.r, true)) player.y = ny;
-  player.vx = dx * player.speed;
-  player.vy = dy * player.speed;
+  if (player.fallTimer > 0) {
+    player.fallTimer -= dt;
+    player.vx = 0; player.vy = 0;
+  } else {
+    let dx = 0, dy = 0;
+    if (keys['ArrowLeft']  || keys['a'] || keys['A']) dx -= 1;
+    if (keys['ArrowRight'] || keys['d'] || keys['D']) dx += 1;
+    if (keys['ArrowUp']    || keys['w'] || keys['W']) dy -= 1;
+    if (keys['ArrowDown']  || keys['s'] || keys['S']) dy += 1;
+    if (dx !== 0 && dy !== 0) { dx *= player.diagMult; dy *= player.diagMult; }
+    const nx = Math.max(player.r, Math.min(CONFIG.mapWidth  - player.r, player.x + dx * player.speed * dt));
+    const ny = Math.max(player.r, Math.min(CONFIG.mapHeight - player.r, player.y + dy * player.speed * dt));
+    if (!collidesWithObstacles(nx, player.y, player.r, true)) player.x = nx;
+    if (!collidesWithObstacles(player.x, ny, player.r, true)) player.y = ny;
+    player.vx = dx * player.speed;
+    player.vy = dy * player.speed;
+  }
 
   const nearest  = getNearestEnemy();
   const farthest = getFarthestEnemy();
@@ -973,6 +998,59 @@ function update(dt) {
     if (p.life <= 0) particles.splice(i, 1);
   }
 
+  // ── Debris ──
+  const DEBRIS_FRICTION = { blikje: 2.2, papierprop: 3.5, bananenschil: 1.4 };
+  const DEBRIS_HIT_R    = { blikje: 6,   papierprop: 6,   bananenschil: 12  };
+  for (const d of debris) {
+    // Push door speler en ganzen
+    const pushers = [player, ...enemies];
+    for (const p of pushers) {
+      const ddx = d.x - p.x, ddy = d.y - p.y;
+      const dist = Math.hypot(ddx, ddy);
+      const pushR = 32;
+      if (dist < pushR && dist > 0.1) {
+        const str = (1 - dist / pushR) * 160 * dt;
+        d.vx += (ddx / dist) * str;
+        d.vy += (ddy / dist) * str;
+        d.angularVel += str * 0.04 * (ddx > 0 ? 1 : -1);
+        if (p === player) d.playerPushTimer = 0.6;
+      }
+    }
+    if (d.playerPushTimer > 0) d.playerPushTimer -= dt;
+
+    // Blikje/papierprop raakt gans (alleen als door speler gegooid)
+    if (d.type !== 'bananenschil' && d.playerPushTimer > 0) {
+      const speed = Math.hypot(d.vx, d.vy);
+      if (speed > 25) {
+        for (let ei = enemies.length - 1; ei >= 0; ei--) {
+          const e = enemies[ei];
+          const ddx = d.x - e.x, ddy = d.y - e.y;
+          if (Math.hypot(ddx, ddy) < DEBRIS_HIT_R[d.type] + e.r) {
+            damageEnemy(ei, 5);
+            d.vx *= -0.4; d.vy *= -0.4;
+            d.playerPushTimer = 0;
+            break;
+          }
+        }
+      }
+    }
+
+    // Bananenschil raakt speler → val
+    if (d.type === 'bananenschil' && player.fallTimer <= 0) {
+      const ddx = player.x - d.x, ddy = player.y - d.y;
+      if (Math.hypot(ddx, ddy) < player.r + DEBRIS_HIT_R.bananenschil) {
+        player.fallTimer = 1.0;
+      }
+    }
+
+    const fric = Math.exp(-(DEBRIS_FRICTION[d.type] || 2) * dt);
+    d.vx *= fric; d.vy *= fric; d.angularVel *= fric;
+    d.x += d.vx; d.y += d.vy;
+    d.angle += d.angularVel;
+    d.x = Math.max(20, Math.min(CONFIG.mapWidth  - 20, d.x));
+    d.y = Math.max(20, Math.min(CONFIG.mapHeight - 20, d.y));
+  }
+
   // ── Pickups (hartjes bewegen naar speler) ──
   for (let i = pickups.length - 1; i >= 0; i--) {
     const pk = pickups[i];
@@ -989,12 +1067,64 @@ function update(dt) {
 }
 
 // ─── Draw helpers ─────────────────────────────────────────────────────────────
+function drawDebris() {
+  for (const d of debris) {
+    ctx.save();
+    ctx.translate(d.x, d.y);
+    ctx.rotate(d.angle);
+
+    if (d.type === 'blikje') {
+      ctx.fillStyle = '#b8b8b8';
+      ctx.beginPath(); ctx.ellipse(0, 8, 4.5, 2, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#c8c8c8';
+      ctx.fillRect(-4.5, -8, 9, 16);
+      ctx.fillStyle = '#e74c3c';
+      ctx.fillRect(-4.5, -2.5, 9, 5);
+      ctx.fillStyle = '#d5d5d5';
+      ctx.beginPath(); ctx.ellipse(0, -8, 4.5, 2, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#999'; ctx.lineWidth = 0.5; ctx.stroke();
+
+    } else if (d.type === 'papierprop') {
+      ctx.fillStyle = '#e8e8e0';
+      ctx.beginPath(); ctx.arc(0, 0, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#bbb'; ctx.lineWidth = 0.5;
+      ctx.beginPath(); ctx.moveTo(-4, -3); ctx.lineTo(2, 1); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-2, 3); ctx.lineTo(4, -1); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(-3, 0); ctx.lineTo(1, -4); ctx.stroke();
+
+    } else if (d.type === 'bananenschil') {
+      ctx.fillStyle = '#f5d823';
+      ctx.strokeStyle = '#c9a800'; ctx.lineWidth = 1;
+      // Vier schillen die uiteen liggen
+      for (let i = 0; i < 4; i++) {
+        ctx.save();
+        ctx.rotate((i / 4) * Math.PI * 2);
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.bezierCurveTo(3, -4, 5, -10, 3, -14);
+        ctx.bezierCurveTo(1, -12, -1, -6, 0, 0);
+        ctx.fill(); ctx.stroke();
+        ctx.restore();
+      }
+    }
+
+    ctx.restore();
+  }
+}
+
 function drawGoose(e) {
   const { x, y, r, hp, maxHp, tier, slowTimer, hitTimer, type } = e;
   const angle = Math.atan2(player.y - e.y, player.x - e.x);
   const tDef  = ENEMY_TYPES[type] || ENEMY_TYPES.normal;
   const baseColor = tDef.color || (tier < 2 ? '#f5f5f5' : tier < 4 ? '#f0e8d0' : '#e8d0b0');
   const bodyColor = (hitTimer > 0) ? '#ffffff' : baseColor;
+
+  ctx.save();
+  ctx.globalAlpha = 0.18;
+  ctx.fillStyle = '#000';
+  ctx.beginPath(); ctx.ellipse(x + r * 0.15, y + r * 0.55, r * 0.85, r * 0.28, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.restore();
 
   ctx.save();
   ctx.translate(x, y);
@@ -1043,8 +1173,70 @@ function drawGoose(e) {
 }
 
 function drawStudent() {
-  const { x, y, r, facingAngle, invincible } = player;
+  const { x, y, r, facingAngle, invincible, fallTimer } = player;
   if (invincible > 0 && Math.floor(invincible * 10) % 2 === 0) return;
+
+  if (fallTimer > 0) {
+    // ── Val-animatie ──
+    // Kantelhoek: snel naar 90° in eerste 0.15s, dan plat blijven
+    const tiltProgress = Math.min(1, (1.0 - fallTimer) / 0.15);
+    const tiltAngle = facingAngle + (Math.PI / 2) * tiltProgress;
+    const flatness  = 1 - 0.55 * tiltProgress; // lichaam wordt platter
+
+    ctx.save();
+    ctx.globalAlpha = 0.15;
+    ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.ellipse(x, y + r * 0.5, r * 1.1, r * 0.2, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = 1;
+    ctx.restore();
+
+    ctx.save();
+    ctx.translate(x, y);
+    ctx.rotate(tiltAngle);
+    ctx.scale(1, flatness);
+
+    ctx.fillStyle = '#1a3a6c';
+    ctx.beginPath(); ctx.ellipse(0, 0, r * 0.72, r * 0.9, 0, 0, Math.PI * 2); ctx.fill();
+    const hx = r * 0.68;
+    ctx.fillStyle = '#f5cba7';
+    ctx.beginPath(); ctx.arc(hx, 0, r * 0.44, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#c0392b';
+    ctx.beginPath(); ctx.arc(hx, 0, r * 0.46, Math.PI, 0); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = '#922b21';
+    ctx.fillRect(hx + r * 0.05, -r * 0.09, r * 0.52, r * 0.18);
+    ctx.restore();
+
+    // Sterretjes die om het hoofd cirkelen
+    if (tiltProgress >= 1) {
+      const starCount = 3;
+      for (let s = 0; s < starCount; s++) {
+        const a = elapsed * 4 + (s / starCount) * Math.PI * 2;
+        const sx = x + Math.cos(a) * r * 1.2;
+        const sy = y - r * 0.3 + Math.sin(a) * r * 0.4;
+        ctx.save();
+        ctx.translate(sx, sy);
+        ctx.rotate(a * 2);
+        ctx.fillStyle = '#f1c40f';
+        ctx.font = `bold ${Math.round(r * 0.45)}px sans-serif`;
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('★', 0, 0);
+        ctx.restore();
+      }
+    }
+
+    const pw = 60, ph = 6;
+    ctx.fillStyle = '#333'; ctx.fillRect(x - pw / 2, y - r - 12, pw, ph);
+    ctx.fillStyle = '#e74c3c'; ctx.fillRect(x - pw / 2, y - r - 12, pw * (player.hp / player.maxHp), ph);
+    return;
+  }
+
+  // ── Normale pose ──
+  ctx.save();
+  ctx.globalAlpha = 0.18;
+  ctx.fillStyle = '#000';
+  ctx.beginPath(); ctx.ellipse(x, y + r * 0.75, r * 0.7, r * 0.22, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.restore();
 
   ctx.save();
   ctx.translate(x, y);
@@ -1472,6 +1664,7 @@ function draw() {
   ctx.translate(-camera.x, -camera.y);
 
   drawBackground();
+  drawDebris();
 
   for (const d of deathEffects) {
     ctx.globalAlpha = (d.life / d.maxLife) * 0.7;
