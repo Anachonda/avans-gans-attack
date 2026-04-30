@@ -121,8 +121,10 @@ sfxRugzak.volume  = CONFIG.volumeRugzak;
 sfxThermos.volume = CONFIG.volumeThermos;
 const sfxBaasgans = new Audio('Sounds/Baasgans.wav');
 const sfxGanspoep = new Audio('Sounds/Ganspoep.mp3');
+const sfxBanaan   = new Audio('Sounds/Banaan.wav');
 sfxBaasgans.volume = CONFIG.volumeBaasgans;
 sfxGanspoep.volume = CONFIG.volumeGanspoep;
+sfxBanaan.volume   = 1.0;
 function playSound(sfx) {
   if (!soundEnabled) return;
   const clone = sfx.cloneNode();
@@ -237,6 +239,7 @@ let waveMessage        = null;
 let betweenWavesTimer  = 0;
 let graceTimer         = 0;   // seconden waarbij vijanden op gereduceerde snelheid bewegen
 let debris             = [];
+let bananaSlipCount    = 0;
 
 const player = {
   x: CANVAS_W / 2, y: CANVAS_H / 2,
@@ -298,6 +301,8 @@ const DEBRIS_DEFS = [
   { x: 770,  y: 820,  type: 'papierprop',   angle: 1.5  },
   { x: 1240, y: 490,  type: 'papierprop',   angle: 0.9  },
   { x: 680,  y: 620,  type: 'bananenschil', angle: 0.5  },
+  { x: 400,  y: 480,  type: 'bananenschil', angle: 1.2  },
+  { x: 1050, y: 550,  type: 'bananenschil', angle: 2.1  },
 ];
 
 // Vijver + onderkant: alleen obstakel voor speler, ganzen spawnen hier juist
@@ -536,7 +541,7 @@ function resetGame() {
     swing: null, spinSwing: null, liniaalFlash: null,
   });
   enemies = []; projectiles = []; particles = []; pickups = [];
-  wave = 1; wavePhase = 'fighting'; waveMessage = null; betweenWavesTimer = 0; elapsed = 0; graceTimer = 0;
+  wave = 1; wavePhase = 'fighting'; waveMessage = null; betweenWavesTimer = 0; elapsed = 0; graceTimer = 0; bananaSlipCount = 0;
   debris = DEBRIS_DEFS.map(d => ({ ...d, vx: 0, vy: 0, angularVel: 0, playerPushTimer: 0 }));
 }
 
@@ -621,11 +626,12 @@ function update(dt) {
   else if (dx || dy) player.facingAngle = Math.atan2(dy, dx);
 
   const cd = player.cooldowns;
+  const isFallen = player.fallTimer > 0;
 
   // ── Paraplu ──
   const pLvl = wlvl('paraplu');
   const pDef = WEAPON_DEFS.paraplu;
-  if (player.weapons.paraplu) {
+  if (player.weapons.paraplu && !isFallen) {
     if (player.swing) {
       player.swing.progress += dt / player.swing.duration;
       if (player.swing.progress >= 1) player.swing = null;
@@ -643,7 +649,7 @@ function update(dt) {
   }
 
   // ── Passer ──
-  if (player.weapons.passer) {
+  if (player.weapons.passer && !isFallen) {
     const passLvl = wlvl('passer');
     const passDef = WEAPON_DEFS.passer;
     if (player.spinSwing) {
@@ -660,7 +666,7 @@ function update(dt) {
   }
 
   // ── Liniaal ──
-  if (player.weapons.liniaal) {
+  if (player.weapons.liniaal && !isFallen) {
     const linLvl = wlvl('liniaal');
     const linDef = WEAPON_DEFS.liniaal;
     if (player.liniaalFlash) {
@@ -678,7 +684,7 @@ function update(dt) {
   }
 
   // ── Boek ──
-  if (player.weapons.boek) {
+  if (player.weapons.boek && !isFallen) {
     const bLvl = wlvl('boek');
     const bDef = WEAPON_DEFS.boek;
     cd.boek = (cd.boek || 0) - dt;
@@ -693,7 +699,7 @@ function update(dt) {
   }
 
   // ── Gum ──
-  if (player.weapons.gum) {
+  if (player.weapons.gum && !isFallen) {
     const gLvl = wlvl('gum');
     const gDef = WEAPON_DEFS.gum;
     cd.gum = (cd.gum || 0) - dt;
@@ -708,7 +714,7 @@ function update(dt) {
   }
 
   // ── Thermos ──
-  if (player.weapons.thermos) {
+  if (player.weapons.thermos && !isFallen) {
     const tLvl = wlvl('thermos');
     const tDef = WEAPON_DEFS.thermos;
     cd.thermos = (cd.thermos || 0) - dt;
@@ -724,7 +730,7 @@ function update(dt) {
   }
 
   // ── Rugzak ──
-  if (player.weapons.rugzak) {
+  if (player.weapons.rugzak && !isFallen) {
     const rLvl = wlvl('rugzak');
     const rDef = WEAPON_DEFS.rugzak;
     cd.rugzak = (cd.rugzak || 0) - dt;
@@ -1035,11 +1041,13 @@ function update(dt) {
       }
     }
 
-    // Bananenschil raakt speler → val
+    // Bananenschil raakt speler → val (valtijd neemt toe per keer)
     if (d.type === 'bananenschil' && player.fallTimer <= 0) {
       const ddx = player.x - d.x, ddy = player.y - d.y;
       if (Math.hypot(ddx, ddy) < player.r + DEBRIS_HIT_R.bananenschil) {
-        player.fallTimer = 1.0;
+        bananaSlipCount++;
+        player.fallTimer = bananaSlipCount;
+        playSound(sfxBanaan);
       }
     }
 
