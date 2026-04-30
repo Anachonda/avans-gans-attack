@@ -63,20 +63,37 @@ body {
 #overlay.hidden { display: none; }
 
 #overlay-box {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   text-align: center;
-  padding: 32px 48px 40px;
+  width: 90%;
+  height: 92%;
+  padding: 16px 24px 24px;
   background: #1c1c28;
   border: 2px solid #C6002A;
   border-radius: 12px;
+  overflow: hidden;
 }
 
 #start-img {
   display: block;
-  margin: 0 auto 16px;
-  height: 160px;
+  width: 100%;
+  flex: 1;
+  min-height: 0;
+  margin-bottom: 12px;
   border-radius: 8px;
   object-fit: cover;
   box-shadow: 0 4px 18px rgba(198,0,42,0.4);
+}
+
+#avans-logo {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  height: 44px;
+  object-fit: contain;
 }
 
 #overlay-box h1 {
