@@ -82,9 +82,11 @@ body {
   width: 100%;
   flex: 1;
   min-height: 0;
+  margin-top: 48px;
   margin-bottom: 12px;
   border-radius: 8px;
   object-fit: cover;
+  object-position: top;
   box-shadow: 0 4px 18px rgba(198,0,42,0.4);
 }
 
@@ -93,6 +95,13 @@ body {
   top: 12px;
   right: 14px;
   height: 44px;
+  object-fit: contain;
+}
+
+#hud-logo {
+  height: 18px;
+  margin-left: auto;
+  opacity: 0.55;
   object-fit: contain;
 }
 
