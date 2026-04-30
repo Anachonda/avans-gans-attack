@@ -1016,8 +1016,21 @@ function update(dt) {
       const pushR = 32;
       if (dist < pushR && dist > 0.1) {
         const str = (1 - dist / pushR) * 160 * dt;
-        d.vx += (ddx / dist) * str;
-        d.vy += (ddy / dist) * str;
+        // Normale/vliegende ganzen duwen bananenschillen richting de speler
+        if (d.type === 'bananenschil' && p !== player &&
+            (p.type === 'normal' || p.type === 'flyer')) {
+          const tpx = player.x - d.x, tpy = player.y - d.y;
+          const tpd = Math.hypot(tpx, tpy);
+          if (tpd > 0) {
+            const accuracy = p.type === 'flyer' ? 0.35 : 0.18;
+            const tacStr = str * accuracy;
+            d.vx += (tpx / tpd + (Math.random() - 0.5) * 0.8) * tacStr;
+            d.vy += (tpy / tpd + (Math.random() - 0.5) * 0.8) * tacStr;
+          }
+        } else {
+          d.vx += (ddx / dist) * str;
+          d.vy += (ddy / dist) * str;
+        }
         d.angularVel += str * 0.04 * (ddx > 0 ? 1 : -1);
         if (p === player) d.playerPushTimer = 0.6;
       }
@@ -1053,10 +1066,18 @@ function update(dt) {
 
     const fric = Math.exp(-(DEBRIS_FRICTION[d.type] || 2) * dt);
     d.vx *= fric; d.vy *= fric; d.angularVel *= fric;
-    d.x += d.vx; d.y += d.vy;
     d.angle += d.angularVel;
-    d.x = Math.max(20, Math.min(CONFIG.mapWidth  - 20, d.x));
-    d.y = Math.max(20, Math.min(CONFIG.mapHeight - 20, d.y));
+    if (d.type === 'bananenschil') {
+      const br = DEBRIS_HIT_R.bananenschil;
+      const nx = Math.max(br, Math.min(CONFIG.mapWidth  - br, d.x + d.vx));
+      const ny = Math.max(br, Math.min(CONFIG.mapHeight - br, d.y + d.vy));
+      if (!collidesWithObstacles(nx, d.y, br)) d.x = nx; else d.vx *= -0.3;
+      if (!collidesWithObstacles(d.x, ny, br)) d.y = ny; else d.vy *= -0.3;
+    } else {
+      d.x += d.vx; d.y += d.vy;
+      d.x = Math.max(20, Math.min(CONFIG.mapWidth  - 20, d.x));
+      d.y = Math.max(20, Math.min(CONFIG.mapHeight - 20, d.y));
+    }
   }
 
   // ── Pickups (hartjes bewegen naar speler) ──
