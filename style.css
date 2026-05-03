@@ -162,27 +162,25 @@ button:hover { background: #a0001f; }
 }
 
 /* ── PWA install banner (alleen iOS Safari, getoond via JS) ─────────────── */
+/* Staat buiten #overlay-box zodat het altijd zichtbaar is, ongeacht scroll */
 #install-banner {
   display: none;
+  position: absolute;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
   flex-direction: row;
-  align-items: flex-start;
+  align-items: center;
   gap: 10px;
-  margin-top: 14px;
-  padding: 10px 14px;
-  background: rgba(198, 0, 42, 0.12);
-  border: 1px solid rgba(198, 0, 42, 0.4);
+  padding: 10px 16px;
+  background: rgba(10, 10, 15, 0.92);
+  border: 1px solid #C6002A;
   border-radius: 10px;
-  font-size: 0.78rem;
-  color: #ddd;
-  text-align: left;
-  line-height: 1.5;
-  max-width: 280px;
-}
-
-#install-icon {
-  font-size: 1.1rem;
-  flex-shrink: 0;
-  margin-top: 1px;
+  font-size: 0.8rem;
+  color: #eee;
+  white-space: nowrap;
+  pointer-events: none;
 }
 
 /* ── Level-up upgrade panel ─────────────────────────────────────────────── */
