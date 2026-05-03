@@ -238,14 +238,12 @@ button:hover { background: #a0001f; }
 /* ── Mobiel (≤ 1024px) ──────────────────────────────────────────────────── */
 @media (max-width: 1024px) {
   body {
-    align-items: stretch;
+    align-items: center;
     justify-content: center;
   }
 
   #ui {
-    /* Vult volledige schermbreedte, en in landscape de volledige hoogte */
-    width: min(100vw, calc(100dvh * 4 / 3));
-    width: min(100vw, calc(100vh * 4 / 3)); /* fallback voor oudere browsers */
+    width: min(100vw, calc(100vh * 4 / 3)); /* fallback */
     width: min(100vw, calc(100dvh * 4 / 3));
     margin: auto;
   }
@@ -273,6 +271,29 @@ button:hover { background: #a0001f; }
   #overlay:not(.hidden) ~ #dpad,
   #level-up-panel:not(.hidden) ~ #dpad {
     display: none;
+  }
+}
+
+/* ── Landscape: canvas vult volledige schermhoogte ──────────────────────── */
+@media (max-width: 1024px) and (orientation: landscape) {
+  #ui {
+    width: calc(100vh * 4 / 3); /* fallback */
+    width: calc(100dvh * 4 / 3);
+  }
+}
+
+/* ── Portret: kantel-hint zichtbaar, landscape: verborgen ───────────────── */
+#rotate-hint {
+  display: none;
+  margin-top: 10px;
+  font-size: 0.8rem;
+  color: #888;
+  letter-spacing: 0.02em;
+}
+
+@media (max-width: 1024px) and (orientation: portrait) {
+  #rotate-hint {
+    display: block;
   }
 }
 
