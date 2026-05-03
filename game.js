@@ -149,14 +149,40 @@ const ctx    = canvas.getContext('2d');
 canvas.width  = CANVAS_W;
 canvas.height = CANVAS_H;
 
-// Pas interne canvasresolutie aan aan werkelijke pixelgrootte (HiDPI + oriëntatie)
+// Pas #ui-grootte en interne canvasresolutie aan op basis van werkelijke viewport.
+// window.innerWidth/Height is op iOS Safari altijd correct (anders dan 100dvh).
+const uiEl = document.getElementById('ui');
+
 function resizeCanvas() {
+  const vw  = window.innerWidth;
+  const vh  = window.innerHeight;
+
+  // Op mobiel: size #ui via JS zodat het altijd de zichtbare viewport vult
+  if (vw <= 1024) {
+    let w, h;
+    if (vw / vh > 4 / 3) {
+      // Breder dan 4:3 → hoogte-beperkt (landscape)
+      h = vh; w = Math.round(h * 4 / 3);
+    } else {
+      // Smalmer dan 4:3 → breedte-beperkt (portrait)
+      w = vw; h = Math.round(w * 3 / 4);
+    }
+    uiEl.style.width  = w + 'px';
+    uiEl.style.height = h + 'px';
+  } else {
+    // Desktop: laat CSS de breedte bepalen
+    uiEl.style.width  = '';
+    uiEl.style.height = '';
+  }
+
+  // Stel interne canvasresolutie in op fysieke pixels (HiDPI-scherpte)
   const rect = canvas.getBoundingClientRect();
   if (!rect.width || !rect.height) return;
   const dpr = window.devicePixelRatio || 1;
   canvas.width  = Math.round(rect.width  * dpr);
   canvas.height = Math.round(rect.height * dpr);
 }
+
 window.addEventListener('resize', resizeCanvas);
 window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 150));
 resizeCanvas();
@@ -1921,25 +1947,12 @@ debugToggleEl.addEventListener('click', () => {
 });
 document.getElementById('ui').appendChild(debugToggleEl);
 
-// ─── Mobiele actieknop ────────────────────────────────────────────────────────
-const actionBtn = document.getElementById('action-btn');
-if (actionBtn) {
-  actionBtn.addEventListener('pointerdown', e => {
-    e.preventDefault();
-    actionBtn.classList.add('pressed');
-    // Tijdelijke sprint: spelersnelheid verdubbelt voor 0,8 seconden
-    if (state === 'playing' && !player.sprinting) {
-      player.sprinting = true;
-      player.baseSpeed = player.speed;
-      player.speed *= 2;
-      setTimeout(() => {
-        player.speed = player.baseSpeed;
-        player.sprinting = false;
-      }, 800);
-    }
-  });
-  actionBtn.addEventListener('pointerup',     e => { e.preventDefault(); actionBtn.classList.remove('pressed'); });
-  actionBtn.addEventListener('pointercancel', e => { e.preventDefault(); actionBtn.classList.remove('pressed'); });
-  actionBtn.addEventListener('touchstart',    e => e.preventDefault(), { passive: false });
-  actionBtn.addEventListener('touchend',      e => e.preventDefault(), { passive: false });
+// ─── PWA install-banner (alleen iOS Safari buiten standalone-modus) ───────────
+const isIOS        = /iPad|iPhone|iPod/.test(navigator.userAgent);
+const isStandalone = window.navigator.standalone === true ||
+                     window.matchMedia('(display-mode: fullscreen)').matches ||
+                     window.matchMedia('(display-mode: standalone)').matches;
+if (isIOS && !isStandalone) {
+  const banner = document.getElementById('install-banner');
+  if (banner) banner.style.display = 'flex';
 }

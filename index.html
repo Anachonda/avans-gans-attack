@@ -1,10 +1,14 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="nl">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Gans Attack" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="Pics/avanslogo.png" />
   <title>Avans Gans Attack</title>
   <link rel="stylesheet" href="style.css" />
 </head>
@@ -27,6 +31,10 @@
         <button id="overlay-btn">Start</button>
         <button id="sound-toggle">Geluid: AAN</button>
         <p id="rotate-hint">&#8635; Kantel je telefoon voor volledig scherm</p>
+        <div id="install-banner">
+          <span id="install-icon">&#11014;</span>
+          <span>Tik op <strong>&#11014;</strong> en kies <strong>'Zet op beginscherm'</strong> voor volledig scherm zonder browserbalk</span>
+        </div>
       </div>
     </div>
     <div id="level-up-panel" class="hidden">
@@ -34,12 +42,11 @@
       <div id="upgrade-options"></div>
     </div>
     <div id="dpad">
-      <span class="dp-up">▲</span>
-      <span class="dp-left">◀</span>
-      <span class="dp-down">▼</span>
-      <span class="dp-right">▶</span>
+      <span class="dp-up">&#9650;</span>
+      <span class="dp-left">&#9664;</span>
+      <span class="dp-down">&#9660;</span>
+      <span class="dp-right">&#9654;</span>
     </div>
-    <div id="action-btn">&#9889;</div>
   </div>
   <script src="game.js"></script>
 </body>

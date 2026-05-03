@@ -44,8 +44,8 @@ body {
   font-weight: bold;
 }
 
-#hp-display  { color: #e74c3c; }
-#xp-display  { color: #2ecc71; }
+#hp-display    { color: #e74c3c; }
+#xp-display    { color: #2ecc71; }
 #level-display { color: #f1c40f; }
 #timer-display { color: #3498db; }
 
@@ -54,7 +54,7 @@ body {
   border: 2px solid #222;
 }
 
-/* Overlay (start / game-over screen) */
+/* ── Overlay (start / game-over) ────────────────────────────────────────── */
 #overlay {
   position: absolute;
   inset: 0;
@@ -161,7 +161,31 @@ button:hover { background: #a0001f; }
   min-height: 1.2em;
 }
 
-/* Level-up upgrade panel */
+/* ── PWA install banner (alleen iOS Safari, getoond via JS) ─────────────── */
+#install-banner {
+  display: none;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 10px 14px;
+  background: rgba(198, 0, 42, 0.12);
+  border: 1px solid rgba(198, 0, 42, 0.4);
+  border-radius: 10px;
+  font-size: 0.78rem;
+  color: #ddd;
+  text-align: left;
+  line-height: 1.5;
+  max-width: 280px;
+}
+
+#install-icon {
+  font-size: 1.1rem;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* ── Level-up upgrade panel ─────────────────────────────────────────────── */
 #level-up-panel {
   position: absolute;
   inset: 0;
@@ -205,7 +229,7 @@ button:hover { background: #a0001f; }
 .upgrade-card h3 { font-size: 1rem; color: #C6002A; margin-bottom: 8px; }
 .upgrade-card p  { font-size: 0.8rem; color: #aaa; }
 
-/* D-pad — standaard verborgen (desktop), zichtbaar via media query op mobiel */
+/* ── D-pad: verborgen op desktop, zichtbaar op mobiel via media query ────── */
 #dpad {
   display: none;
   position: absolute;
@@ -235,49 +259,26 @@ button:hover { background: #a0001f; }
 .dp-left  { left: 8px;   top: 50%;  transform: translateY(-50%); }
 .dp-right { right: 8px;  top: 50%;  transform: translateY(-50%); }
 
-/* Actieknop (sprint) — rechterbenedenhoek, alleen mobiel */
-#action-btn {
-  display: none;
-  position: absolute;
-  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
-  right: calc(16px + env(safe-area-inset-right, 0px));
-  width: 80px;
-  height: 80px;
-  background: rgba(255, 255, 255, 0.2);
-  border: 2px solid rgba(255, 255, 255, 0.45);
-  border-radius: 50%;
-  z-index: 20;
-  opacity: 0.5;
-  touch-action: none;
-  user-select: none;
-  -webkit-user-select: none;
-  font-size: 28px;
-  align-items: center;
-  justify-content: center;
-  color: rgba(255, 255, 255, 0.9);
-  cursor: pointer;
-  transition: transform 0.08s, opacity 0.08s;
-}
-
-#action-btn.pressed {
-  transform: scale(0.88);
-  opacity: 0.85;
-}
-
 /* ── Mobiel (≤ 1024px) ──────────────────────────────────────────────────── */
 @media (max-width: 1024px) {
+  /* position:fixed zorgt dat body altijd de zichtbare viewport vult,
+     ongeacht adresbalk of tabbalk in Safari */
   body {
+    position: fixed;
+    inset: 0;
+    height: auto;
     align-items: center;
     justify-content: center;
   }
 
+  /* JS (resizeCanvas) overschrijft breedte/hoogte via window.innerWidth/Height.
+     Dit is de CSS-fallback als JS nog niet geladen is. */
   #ui {
-    width: min(100vw, calc(100vh * 4 / 3)); /* fallback */
-    width: min(100vw, calc(100dvh * 4 / 3));
+    width: min(100vw, calc(100vh * 4 / 3));
     margin: auto;
   }
 
-  /* HUD zweeft over canvas zodat canvas alle ruimte pakt */
+  /* HUD zweeft over canvas zodat canvas alle ruimte krijgt */
   #hud {
     position: absolute;
     top: 0;
@@ -292,32 +293,18 @@ button:hover { background: #a0001f; }
     border: none;
   }
 
-  /* D-pad en actieknop tonen tijdens gameplay; verbergen bij overlay en level-up */
+  /* D-pad zichtbaar tijdens gameplay, verborgen bij overlay/level-up */
   #dpad {
     display: block;
   }
 
-  #action-btn {
-    display: flex;
-  }
-
   #overlay:not(.hidden) ~ #dpad,
-  #level-up-panel:not(.hidden) ~ #dpad,
-  #overlay:not(.hidden) ~ #action-btn,
-  #level-up-panel:not(.hidden) ~ #action-btn {
+  #level-up-panel:not(.hidden) ~ #dpad {
     display: none;
   }
 }
 
-/* ── Landscape: canvas vult volledige schermhoogte ──────────────────────── */
-@media (max-width: 1024px) and (orientation: landscape) {
-  #ui {
-    width: calc(100vh * 4 / 3); /* fallback */
-    width: calc(100dvh * 4 / 3);
-  }
-}
-
-/* ── Portret: kantel-hint zichtbaar, landscape: verborgen ───────────────── */
+/* ── Portret: kantel-hint zichtbaar ─────────────────────────────────────── */
 #rotate-hint {
   display: none;
   margin-top: 10px;
@@ -327,12 +314,10 @@ button:hover { background: #a0001f; }
 }
 
 @media (max-width: 1024px) and (orientation: portrait) {
-  #rotate-hint {
-    display: block;
-  }
+  #rotate-hint { display: block; }
 }
 
-/* ── Smal scherm portret (≤ 480px): overlay compacter maken ─────────────── */
+/* ── Smal scherm portret (≤ 480px): overlay compacter ───────────────────── */
 @media (max-width: 480px) {
   #overlay-box {
     padding: 10px 10px 14px;
@@ -359,18 +344,11 @@ button:hover { background: #a0001f; }
     gap: 10px;
   }
 
-  .upgrade-card {
-    width: 220px;
-  }
+  .upgrade-card { width: 220px; }
 }
 
-/* ── Landscape-telefoon: weinig hoogte, verberg GIF zodat knoppen passen ── */
+/* ── Landscape telefoon: weinig hoogte, verberg GIF ─────────────────────── */
 @media (max-height: 420px) {
-  #start-img {
-    display: none;
-  }
-
-  #overlay-box h1 {
-    font-size: 1.4rem;
-  }
+  #start-img { display: none; }
+  #overlay-box h1 { font-size: 1.4rem; }
 }

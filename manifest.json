@@ -1,0 +1,18 @@
+{
+  "name": "Avans Gans Attack",
+  "short_name": "Gans Attack",
+  "description": "Overleef golven van boze ganzen op de Avans campus!",
+  "start_url": ".",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#0a0a0f",
+  "theme_color": "#C6002A",
+  "icons": [
+    {
+      "src": "Pics/avanslogo.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
