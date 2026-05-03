@@ -1811,7 +1811,6 @@ function startGame() {
   startMusic();
   overlay.classList.add('hidden');
   levelPanel.classList.add('hidden');
-  dpad.style.display = '';
   state = 'playing';
   wavePhase = 'fighting';
   spawnEnemiesForWave(wave);
@@ -1828,7 +1827,6 @@ function endGame() {
   overlayBtn.textContent   = 'Opnieuw spelen';
   updateHighscoreBox();
   overlay.classList.remove('hidden');
-  dpad.style.display = 'none';
   playSound(sfxVerlies);
   setTimeout(() => playSound(sfxGanzenwinnen), 500);
 }
@@ -1880,7 +1878,6 @@ overlayMsg.innerHTML     = 'Overleef golven van boze ganzen!<br>Beweeg met WASD 
 overlayBtn.textContent   = 'Start';
 updateHighscoreBox();
 overlay.classList.remove('hidden');
-dpad.style.display = 'none';
 
 // ── Debug toggle (klein, rechtsboven in het venster) ─────────────────────────
 const debugToggleEl = document.createElement('div');

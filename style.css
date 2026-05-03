@@ -10,6 +10,7 @@ body {
   justify-content: center;
   align-items: center;
   height: 100vh;
+  height: 100dvh;
   font-family: 'Segoe UI', sans-serif;
   color: #eee;
   overflow: hidden;
@@ -19,7 +20,6 @@ body {
 
 #ui {
   position: relative;
-  /* ~70% van de viewport-hoogte, max 85% breedte, 4:3 verhouding */
   width: min(85vw, calc(70vh * 4 / 3));
 }
 
@@ -27,7 +27,7 @@ body {
   width: 100%;
   height: auto;
   display: block;
-  image-rendering: -webkit-optimize-contrast; /* vermindert waas bij opschalen */
+  image-rendering: -webkit-optimize-contrast;
   image-rendering: crisp-edges;
   touch-action: none;
   user-select: none;
@@ -63,6 +63,7 @@ body {
   align-items: center;
   background: rgba(0, 0, 0, 0.75);
   border-radius: 0 0 6px 6px;
+  z-index: 30;
 }
 
 #overlay.hidden { display: none; }
@@ -170,6 +171,7 @@ button:hover { background: #a0001f; }
   align-items: center;
   gap: 16px;
   background: rgba(0, 0, 0, 0.8);
+  z-index: 30;
 }
 
 #level-up-panel.hidden { display: none; }
@@ -203,17 +205,19 @@ button:hover { background: #a0001f; }
 .upgrade-card h3 { font-size: 1rem; color: #C6002A; margin-bottom: 8px; }
 .upgrade-card p  { font-size: 0.8rem; color: #aaa; }
 
-/* D-pad (mobiel) */
+/* D-pad — standaard verborgen (desktop), zichtbaar via media query op mobiel */
 #dpad {
-  position: fixed;
-  bottom: 24px;
-  left: 24px;
-  width: 150px;
-  height: 150px;
-  background: rgba(255, 255, 255, 0.15);
-  border: 2px solid rgba(255, 255, 255, 0.35);
+  display: none;
+  position: absolute;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  left: calc(16px + env(safe-area-inset-left, 0px));
+  width: 140px;
+  height: 140px;
+  background: rgba(255, 255, 255, 0.25);
+  border: 2px solid rgba(255, 255, 255, 0.5);
   border-radius: 50%;
-  z-index: 1000;
+  z-index: 20;
+  opacity: 0.5;
   touch-action: none;
   user-select: none;
   -webkit-user-select: none;
@@ -221,7 +225,7 @@ button:hover { background: #a0001f; }
 
 #dpad span {
   position: absolute;
-  color: rgba(255, 255, 255, 0.75);
+  color: #fff;
   font-size: 22px;
   pointer-events: none;
 }
@@ -231,12 +235,49 @@ button:hover { background: #a0001f; }
 .dp-left  { left: 8px;   top: 50%;  transform: translateY(-50%); }
 .dp-right { right: 8px;  top: 50%;  transform: translateY(-50%); }
 
-/* Smal scherm (telefoon portret) */
-@media (max-width: 480px) {
-  #ui {
-    width: 100vw;
+/* ── Mobiel (≤ 1024px) ──────────────────────────────────────────────────── */
+@media (max-width: 1024px) {
+  body {
+    align-items: stretch;
+    justify-content: center;
   }
 
+  #ui {
+    /* Vult volledige schermbreedte, en in landscape de volledige hoogte */
+    width: min(100vw, calc(100dvh * 4 / 3));
+    width: min(100vw, calc(100vh * 4 / 3)); /* fallback voor oudere browsers */
+    width: min(100vw, calc(100dvh * 4 / 3));
+    margin: auto;
+  }
+
+  /* HUD zweeft over canvas zodat canvas alle ruimte pakt */
+  #hud {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 10;
+    border-radius: 0;
+    background: rgba(0, 0, 0, 0.5);
+  }
+
+  #game-canvas {
+    border: none;
+  }
+
+  /* D-pad tonen tijdens gameplay; verbergen bij overlay en level-up */
+  #dpad {
+    display: block;
+  }
+
+  #overlay:not(.hidden) ~ #dpad,
+  #level-up-panel:not(.hidden) ~ #dpad {
+    display: none;
+  }
+}
+
+/* ── Smal scherm portret (≤ 480px): overlay compacter maken ─────────────── */
+@media (max-width: 480px) {
   #overlay-box {
     padding: 10px 10px 14px;
   }
@@ -267,7 +308,7 @@ button:hover { background: #a0001f; }
   }
 }
 
-/* Landscape-telefoon: weinig hoogte, verberg de GIF zodat knoppen passen */
+/* ── Landscape-telefoon: weinig hoogte, verberg GIF zodat knoppen passen ── */
 @media (max-height: 420px) {
   #start-img {
     display: none;
