@@ -149,6 +149,18 @@ const ctx    = canvas.getContext('2d');
 canvas.width  = CANVAS_W;
 canvas.height = CANVAS_H;
 
+// Pas interne canvasresolutie aan aan werkelijke pixelgrootte (HiDPI + oriëntatie)
+function resizeCanvas() {
+  const rect = canvas.getBoundingClientRect();
+  if (!rect.width || !rect.height) return;
+  const dpr = window.devicePixelRatio || 1;
+  canvas.width  = Math.round(rect.width  * dpr);
+  canvas.height = Math.round(rect.height * dpr);
+}
+window.addEventListener('resize', resizeCanvas);
+window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 150));
+resizeCanvas();
+
 const elHP             = document.getElementById('hp');
 const elWave           = document.getElementById('wave');
 const elTimer          = document.getElementById('timer');
@@ -1691,10 +1703,17 @@ function drawBackgroundOLD_UNUSED() {
 
 // ─── Drawing ─────────────────────────────────────────────────────────────────
 function draw() {
+  // Schaal virtuele 800×600 coördinaten naar de werkelijke canvaspixels
+  const scaleX = canvas.width  / CANVAS_W;
+  const scaleY = canvas.height / CANVAS_H;
+
   camera.x = Math.max(0, Math.min(CONFIG.mapWidth  - CANVAS_W, player.x - CANVAS_W / 2));
   camera.y = Math.max(0, Math.min(CONFIG.mapHeight - CANVAS_H, player.y - CANVAS_H / 2));
 
-  ctx.save();
+  ctx.save();              // buitenste save: schaal
+  ctx.scale(scaleX, scaleY);
+
+  ctx.save();              // binnenste save: cameravertaling
   ctx.translate(-camera.x, -camera.y);
 
   drawBackground();
@@ -1754,8 +1773,8 @@ function draw() {
     ctx.globalAlpha = 1;
   }
 
-  ctx.restore();
-  // ── Screen space ──
+  ctx.restore();           // herstel cameravertaling
+  // ── Screen space (nog steeds in virtuele 800×600 coördinaten) ──
 
   if (waveMessage) {
     const isBossMsg = waveMessage.text.startsWith('ALARM');
@@ -1793,6 +1812,8 @@ function draw() {
   });
   ctx.restore();
   } // end DEBUG
+
+  ctx.restore();           // herstel schaal
 }
 
 // ─── Loop ─────────────────────────────────────────────────────────────────────
@@ -1872,7 +1893,15 @@ soundToggleBtn.addEventListener('click', e => {
 });
 
 // ─── Startscherm ─────────────────────────────────────────────────────────────
-overlayBtn.addEventListener('click', startGame);
+overlayBtn.addEventListener('click', () => {
+  // Vraag fullscreen aan (werkt op Android; iOS negeert dit stilletjes)
+  const el = document.documentElement;
+  try {
+    if (el.requestFullscreen)              el.requestFullscreen();
+    else if (el.webkitRequestFullscreen)   el.webkitRequestFullscreen();
+  } catch (_) {}
+  startGame();
+});
 overlayTitle.textContent = 'Avans Gans Attack';
 overlayMsg.innerHTML     = 'Overleef golven van boze ganzen!<br>Beweeg met WASD of de pijltjestoetsen.';
 overlayBtn.textContent   = 'Start';
@@ -1891,3 +1920,26 @@ debugToggleEl.addEventListener('click', () => {
   updateDebugToggleLabel();
 });
 document.getElementById('ui').appendChild(debugToggleEl);
+
+// ─── Mobiele actieknop ────────────────────────────────────────────────────────
+const actionBtn = document.getElementById('action-btn');
+if (actionBtn) {
+  actionBtn.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    actionBtn.classList.add('pressed');
+    // Tijdelijke sprint: spelersnelheid verdubbelt voor 0,8 seconden
+    if (state === 'playing' && !player.sprinting) {
+      player.sprinting = true;
+      player.baseSpeed = player.speed;
+      player.speed *= 2;
+      setTimeout(() => {
+        player.speed = player.baseSpeed;
+        player.sprinting = false;
+      }, 800);
+    }
+  });
+  actionBtn.addEventListener('pointerup',     e => { e.preventDefault(); actionBtn.classList.remove('pressed'); });
+  actionBtn.addEventListener('pointercancel', e => { e.preventDefault(); actionBtn.classList.remove('pressed'); });
+  actionBtn.addEventListener('touchstart',    e => e.preventDefault(), { passive: false });
+  actionBtn.addEventListener('touchend',      e => e.preventDefault(), { passive: false });
+}

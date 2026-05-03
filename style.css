@@ -235,6 +235,35 @@ button:hover { background: #a0001f; }
 .dp-left  { left: 8px;   top: 50%;  transform: translateY(-50%); }
 .dp-right { right: 8px;  top: 50%;  transform: translateY(-50%); }
 
+/* Actieknop (sprint) — rechterbenedenhoek, alleen mobiel */
+#action-btn {
+  display: none;
+  position: absolute;
+  bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  right: calc(16px + env(safe-area-inset-right, 0px));
+  width: 80px;
+  height: 80px;
+  background: rgba(255, 255, 255, 0.2);
+  border: 2px solid rgba(255, 255, 255, 0.45);
+  border-radius: 50%;
+  z-index: 20;
+  opacity: 0.5;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+  font-size: 28px;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  transition: transform 0.08s, opacity 0.08s;
+}
+
+#action-btn.pressed {
+  transform: scale(0.88);
+  opacity: 0.85;
+}
+
 /* ── Mobiel (≤ 1024px) ──────────────────────────────────────────────────── */
 @media (max-width: 1024px) {
   body {
@@ -263,13 +292,19 @@ button:hover { background: #a0001f; }
     border: none;
   }
 
-  /* D-pad tonen tijdens gameplay; verbergen bij overlay en level-up */
+  /* D-pad en actieknop tonen tijdens gameplay; verbergen bij overlay en level-up */
   #dpad {
     display: block;
   }
 
+  #action-btn {
+    display: flex;
+  }
+
   #overlay:not(.hidden) ~ #dpad,
-  #level-up-panel:not(.hidden) ~ #dpad {
+  #level-up-panel:not(.hidden) ~ #dpad,
+  #overlay:not(.hidden) ~ #action-btn,
+  #level-up-panel:not(.hidden) ~ #action-btn {
     display: none;
   }
 }
