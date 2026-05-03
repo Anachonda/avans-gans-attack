@@ -84,8 +84,9 @@ const CANVAS_H = 600;
 
 // ─── Audio ───────────────────────────────────────────────────────────────────
 const MUSIC_TRACKS = {
-  main: new Audio('Sounds/Kwakkwak1.mp3'),
-  jazz: new Audio('Sounds/Kwakkwakjazz.mp3'),
+  main:      new Audio('Sounds/Kwakkwak1.mp3'),
+  jazz:      new Audio('Sounds/Kwakkwakjazz.mp3'),
+  jameslast: new Audio('Sounds/Kwakkwakjameslast.mp3'),
 };
 Object.values(MUSIC_TRACKS).forEach(t => { t.volume = CONFIG.volumeMusic; });
 
@@ -95,7 +96,8 @@ MUSIC_TRACKS.main.addEventListener('ended', () => {
   if (musicPlayCount >= 3) { musicPlayCount = 0; MUSIC_TRACKS.jazz.play(); }
   else { MUSIC_TRACKS.main.play(); }
 });
-MUSIC_TRACKS.jazz.addEventListener('ended', () => { MUSIC_TRACKS.main.play(); });
+MUSIC_TRACKS.jazz.addEventListener('ended', () => { MUSIC_TRACKS.jameslast.play(); });
+MUSIC_TRACKS.jameslast.addEventListener('ended', () => { MUSIC_TRACKS.main.play(); });
 
 const sfxAuw          = new Audio('Sounds/Auw.wav');
 const sfxVerlies      = new Audio('Sounds/Verlies.wav');
@@ -369,9 +371,12 @@ function dpadUpdate(e) {
 }
 
 dpad.addEventListener('pointerdown',   e => { e.preventDefault(); dpad.setPointerCapture(e.pointerId); dpadUpdate(e); });
-dpad.addEventListener('pointermove',   e => { if (e.buttons) dpadUpdate(e); });
+dpad.addEventListener('pointermove',   e => { if (e.buttons) { e.preventDefault(); dpadUpdate(e); } });
 dpad.addEventListener('pointerup',     e => { e.preventDefault(); dpadClear(); });
 dpad.addEventListener('pointercancel', e => { e.preventDefault(); dpadClear(); });
+dpad.addEventListener('touchstart',    e => e.preventDefault(), { passive: false });
+dpad.addEventListener('touchmove',     e => e.preventDefault(), { passive: false });
+dpad.addEventListener('touchend',      e => e.preventDefault(), { passive: false });
 
 function startMusic() {
   if (!soundEnabled) return;
@@ -1806,6 +1811,7 @@ function startGame() {
   startMusic();
   overlay.classList.add('hidden');
   levelPanel.classList.add('hidden');
+  dpad.style.display = '';
   state = 'playing';
   wavePhase = 'fighting';
   spawnEnemiesForWave(wave);
@@ -1822,6 +1828,7 @@ function endGame() {
   overlayBtn.textContent   = 'Opnieuw spelen';
   updateHighscoreBox();
   overlay.classList.remove('hidden');
+  dpad.style.display = 'none';
   playSound(sfxVerlies);
   setTimeout(() => playSound(sfxGanzenwinnen), 500);
 }
@@ -1873,6 +1880,7 @@ overlayMsg.innerHTML     = 'Overleef golven van boze ganzen!<br>Beweeg met WASD 
 overlayBtn.textContent   = 'Start';
 updateHighscoreBox();
 overlay.classList.remove('hidden');
+dpad.style.display = 'none';
 
 // ── Debug toggle (klein, rechtsboven in het venster) ─────────────────────────
 const debugToggleEl = document.createElement('div');
