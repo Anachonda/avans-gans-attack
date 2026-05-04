@@ -129,12 +129,21 @@ const sfxBanaan   = new Audio('Sounds/Banaan.wav');
 sfxBaasgans.volume = CONFIG.volumeBaasgans;
 sfxGanspoep.volume = CONFIG.volumeGanspoep;
 sfxBanaan.volume   = 1.0;
+let _activeSounds = 0;
 function playSound(sfx) {
-  if (!soundEnabled) return;
+  if (!soundEnabled || _activeSounds >= 10) return;
   const clone = sfx.cloneNode();
   clone.volume = sfx.volume;
   clone.playbackRate = 0.95 + Math.random() * 0.1;
-  clone.play();
+  _activeSounds++;
+  const cleanup = () => {
+    clone.pause();
+    clone.removeAttribute('src');
+    clone.load();
+    _activeSounds--;
+  };
+  clone.addEventListener('ended', cleanup, { once: true });
+  clone.play().catch(cleanup);
 }
 
 const WEAPON_SFX = { paraplu: sfxParaplu, gum: sfxGum, gans: sfxGans,
