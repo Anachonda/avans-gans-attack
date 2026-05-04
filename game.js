@@ -463,6 +463,7 @@ function collidesWithObstacles(x, y, r, checkPond = false) {
 }
 
 function spawnParticles(x, y, color, count = 6) {
+  if (particles.length >= 200) return;
   for (let i = 0; i < count; i++) {
     const angle = rand(0, Math.PI * 2);
     const speed = rand(40, 130);
