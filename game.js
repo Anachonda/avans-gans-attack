@@ -426,6 +426,7 @@ function startMusic() {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function rand(min, max) { return min + Math.random() * (max - min); }
+function swapRemove(arr, i) { arr[i] = arr[arr.length - 1]; arr.pop(); }
 
 function getNearestEnemy() {
   let best = null, bestD = Infinity;
@@ -603,11 +604,11 @@ function killEnemy(i) {
   deathEffects.push({ x, y, r: r * 0.5, maxR: r * 2.5, life: 0.35, maxLife: 0.35 });
   if (type === 'bossGoose')
     pickups.push({ x, y, type: 'heart', healAmt: Math.round(player.maxHp * 0.1) });
-  enemies.splice(i, 1);
+  swapRemove(enemies, i);
   if (enemies.length === 0 && wavePhase === 'fighting') {
     // Ruim overblijvende boss-projectielen op zodra de wave gewonnen is
     for (let k = projectiles.length - 1; k >= 0; k--) {
-      if (projectiles[k].fromBoss) { projectiles.splice(k, 1); bossProjectileCount--; }
+      if (projectiles[k].fromBoss) { swapRemove(projectiles, k); bossProjectileCount--; }
     }
     wavePhase = 'betweenWaves';
     betweenWavesTimer = CONFIG.waveBreakDuration;
@@ -802,7 +803,7 @@ function update(dt) {
     if (p.x < -40 || p.x > CONFIG.mapWidth + 40 || p.y < -40 || p.y > CONFIG.mapHeight + 40
         || collidesWithObstacles(p.x, p.y, p.r)) {
       if (p.fromBoss) bossProjectileCount--;
-      projectiles.splice(i, 1);
+      swapRemove(projectiles, i);
     }
   }
 
@@ -957,7 +958,7 @@ function update(dt) {
       player.hp -= p.dmg; player.invincible = CONFIG.playerIframes;
       playSound(sfxAuw);
       spawnParticles(player.x, player.y, '#8B0000', 8);
-      projectiles.splice(j, 1); bossProjectileCount--;
+      swapRemove(projectiles, j); bossProjectileCount--;
       if (player.hp <= 0) { player.hp = 0; endGame(); return; }
     }
 
@@ -980,10 +981,10 @@ function update(dt) {
             const na = Math.atan2(next.y - p.y, next.x - p.x);
             p.vx = Math.cos(na) * spd2; p.vy = Math.sin(na) * spd2;
           } else {
-            projectiles.splice(j, 1);
+            swapRemove(projectiles, j);
           }
         } else {
-          projectiles.splice(j, 1);
+          swapRemove(projectiles, j);
         }
         if (killed) break; else continue;
       }
@@ -1003,7 +1004,7 @@ function update(dt) {
           }
           spawnParticles(p.x, p.y, '#3498db', 12);
         }
-        projectiles.splice(j, 1);
+        swapRemove(projectiles, j);
         // Hercheck: i kan verschoven zijn als splash vijanden onder i heeft gedood
         if (i < enemies.length) {
           killed = damageEnemy(i, p.dmg);
@@ -1029,14 +1030,14 @@ function update(dt) {
           if (ridx*ridx+ridy*ridy < splashR2) damageEnemy(i, p.dmg);
         }
         spawnParticles(p.x, p.y, '#8B4513', 14);
-        projectiles.splice(j, 1);
+        swapRemove(projectiles, j);
         killed = true; break;
       }
 
       // boek (with optional piercing)
       if (p.type === 'boek') {
         if (p.pierced && p.pierced.has(i)) continue;
-        if (p.pierced) p.pierced.add(i); else projectiles.splice(j, 1);
+        if (p.pierced) p.pierced.add(i); else swapRemove(projectiles, j);
         spawnParticles(e.x, e.y, '#8B2500', 4);
         killed = damageEnemy(i, p.dmg);
         if (killed) break;
@@ -1051,7 +1052,7 @@ function update(dt) {
     const d = deathEffects[i];
     d.r += (d.maxR - d.r) * dt * 8;
     d.life -= dt;
-    if (d.life <= 0) deathEffects.splice(i, 1);
+    if (d.life <= 0) swapRemove(deathEffects, i);
   }
 
   // ── Particles ──
@@ -1060,7 +1061,7 @@ function update(dt) {
     p.x += p.vx * dt; p.y += p.vy * dt;
     p.vx *= 0.9; p.vy *= 0.9;
     p.life -= dt;
-    if (p.life <= 0) particles.splice(i, 1);
+    if (p.life <= 0) swapRemove(particles, i);
   }
 
   // ── Debris ──
@@ -1152,7 +1153,7 @@ function update(dt) {
     if (dist < player.r + 10) {
       player.hp = Math.min(player.maxHp, player.hp + pk.healAmt);
       spawnParticles(pk.x, pk.y, '#e74c3c', 8);
-      pickups.splice(i, 1);
+      swapRemove(pickups, i);
     }
   }
 }
