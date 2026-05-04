@@ -87,6 +87,7 @@ const MUSIC_TRACKS = {
   main:      new Audio('Sounds/Kwakkwak1.mp3'),
   jazz:      new Audio('Sounds/Kwakkwakjazz.mp3'),
   jameslast: new Audio('Sounds/Kwakkwakjameslast.mp3'),
+  metal:     new Audio('Sounds/Kwakkwakmetal.mp3'),
 };
 Object.values(MUSIC_TRACKS).forEach(t => { t.volume = CONFIG.volumeMusic; });
 
@@ -97,7 +98,8 @@ MUSIC_TRACKS.main.addEventListener('ended', () => {
   else { MUSIC_TRACKS.main.play(); }
 });
 MUSIC_TRACKS.jazz.addEventListener('ended', () => { MUSIC_TRACKS.jameslast.play(); });
-MUSIC_TRACKS.jameslast.addEventListener('ended', () => { MUSIC_TRACKS.main.play(); });
+MUSIC_TRACKS.jameslast.addEventListener('ended', () => { MUSIC_TRACKS.metal.play(); });
+MUSIC_TRACKS.metal.addEventListener('ended', () => { MUSIC_TRACKS.main.play(); });
 
 const sfxAuw          = new Audio('Sounds/Auw.wav');
 const sfxVerlies      = new Audio('Sounds/Verlies.wav');

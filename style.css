@@ -350,8 +350,7 @@ button:hover { background: #a0001f; }
   #dpad {
     position: fixed;
     left: calc(env(safe-area-inset-left, 0px) + 16px);
-    bottom: 50%;
-    transform: translateY(50%);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 16px);
   }
 }
 
