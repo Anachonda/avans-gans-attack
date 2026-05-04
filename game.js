@@ -881,11 +881,13 @@ function update(dt) {
         for (let ci = 0; ci < cell.length; ci++) {
           const j = cell[ci];
           if (j === i) continue;
-          const ox = e.x - enemies[j].x;
-          const oy = e.y - enemies[j].y;
+          const ej = enemies[j];
+          if (!ej) continue;  // guard: grid-index kan stale zijn na swapRemove
+          const ox = e.x - ej.x;
+          const oy = e.y - ej.y;
           const dist2 = ox*ox + oy*oy;
           if (dist2 === 0) continue;
-          const minDist = e.r + enemies[j].r + CONFIG.separationDist;
+          const minDist = e.r + ej.r + CONFIG.separationDist;
           if (dist2 < minDist * minDist) {
             const f = CONFIG.separationStr / Math.sqrt(dist2);
             mx += ox * f;
