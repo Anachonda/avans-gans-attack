@@ -1067,17 +1067,23 @@ function update(dt) {
   const DEBRIS_FRICTION = { blikje: 2.2, papierprop: 3.5, bananenschil: 1.4 };
   const DEBRIS_HIT_R    = { blikje: 6,   papierprop: 6,   bananenschil: 12  };
   for (const d of debris) {
-    // Push door speler en ganzen
-    const pushers = [player, ...enemies];
-    for (const p of pushers) {
+    // Push door speler
+    { const ddx = d.x - player.x, ddy = d.y - player.y;
+      const dist = Math.hypot(ddx, ddy);
+      if (dist < 32 && dist > 0.1) {
+        const str = (1 - dist / 32) * 160 * dt;
+        d.vx += (ddx / dist) * str; d.vy += (ddy / dist) * str;
+        d.angularVel += str * 0.04 * (ddx > 0 ? 1 : -1);
+        d.playerPushTimer = 0.6;
+      }
+    }
+    // Push door ganzen (normale/vliegende ganzen sturen bananenschillen naar de speler)
+    for (const p of enemies) {
       const ddx = d.x - p.x, ddy = d.y - p.y;
       const dist = Math.hypot(ddx, ddy);
-      const pushR = 32;
-      if (dist < pushR && dist > 0.1) {
-        const str = (1 - dist / pushR) * 160 * dt;
-        // Normale/vliegende ganzen duwen bananenschillen richting de speler
-        if (d.type === 'bananenschil' && p !== player &&
-            (p.type === 'normal' || p.type === 'flyer')) {
+      if (dist < 32 && dist > 0.1) {
+        const str = (1 - dist / 32) * 160 * dt;
+        if (d.type === 'bananenschil' && (p.type === 'normal' || p.type === 'flyer')) {
           const tpx = player.x - d.x, tpy = player.y - d.y;
           const tpd = Math.hypot(tpx, tpy);
           if (tpd > 0) {
@@ -1087,11 +1093,9 @@ function update(dt) {
             d.vy += (tpy / tpd + (Math.random() - 0.5) * 0.8) * tacStr;
           }
         } else {
-          d.vx += (ddx / dist) * str;
-          d.vy += (ddy / dist) * str;
+          d.vx += (ddx / dist) * str; d.vy += (ddy / dist) * str;
         }
         d.angularVel += str * 0.04 * (ddx > 0 ? 1 : -1);
-        if (p === player) d.playerPushTimer = 0.6;
       }
     }
     if (d.playerPushTimer > 0) d.playerPushTimer -= dt;
