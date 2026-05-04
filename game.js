@@ -379,6 +379,12 @@ let particles   = [];
 let deathEffects = [];  // { x, y, r, maxR, life, maxLife }
 let pickups      = [];  // { x, y, type, healAmt }
 
+// Spatial grid voor enemy-separatie (preallocatie vermijdt GC per frame)
+const SEP_CELL = 64;
+const SEP_COLS = Math.ceil(CONFIG.mapWidth  / SEP_CELL) + 1;
+const SEP_ROWS = Math.ceil(CONFIG.mapHeight / SEP_CELL) + 1;
+const _sepGrid = Array.from({ length: SEP_COLS * SEP_ROWS }, () => []);
+
 const keys = {};
 window.addEventListener('keydown', e => { keys[e.key] = true; });
 window.addEventListener('keyup',   e => { keys[e.key] = false; });
@@ -810,6 +816,14 @@ function update(dt) {
   // ── Enemies ──
   if (player.invincible > 0) player.invincible -= dt;
 
+  // Vul separation-grid (reset buckets, dan enemies inplaatsen)
+  for (let k = 0; k < _sepGrid.length; k++) _sepGrid[k].length = 0;
+  for (let k = 0; k < enemies.length; k++) {
+    const cx = Math.min(SEP_COLS - 1, Math.floor(enemies[k].x / SEP_CELL));
+    const cy = Math.min(SEP_ROWS - 1, Math.floor(enemies[k].y / SEP_CELL));
+    _sepGrid[cy * SEP_COLS + cx].push(k);
+  }
+
   for (let i = enemies.length - 1; i >= 0; i--) {
     const e = enemies[i];
     if (!e) continue;  // guard: splice in geneste loop kan index verschuiven
@@ -858,17 +872,26 @@ function update(dt) {
     let mx = Math.cos(toA) * spd;
     let my = Math.sin(toA) * spd;
 
-    // Separation: duw weg van te dichtbij staande ganzen
-    for (let j = 0; j < enemies.length; j++) {
-      if (j === i) continue;
-      const ox = e.x - enemies[j].x;
-      const oy = e.y - enemies[j].y;
-      const dist = Math.hypot(ox, oy);
-      const minDist = e.r + enemies[j].r + CONFIG.separationDist;
-      if (dist < minDist && dist > 0) {
-        const f = CONFIG.separationStr / dist;
-        mx += ox * f;
-        my += oy * f;
+    // Separation via spatial grid (O(n) ipv O(n²))
+    const ecx = Math.min(SEP_COLS - 1, Math.floor(e.x / SEP_CELL));
+    const ecy = Math.min(SEP_ROWS - 1, Math.floor(e.y / SEP_CELL));
+    for (let gy = Math.max(0, ecy - 1); gy <= Math.min(SEP_ROWS - 1, ecy + 1); gy++) {
+      for (let gx = Math.max(0, ecx - 1); gx <= Math.min(SEP_COLS - 1, ecx + 1); gx++) {
+        const cell = _sepGrid[gy * SEP_COLS + gx];
+        for (let ci = 0; ci < cell.length; ci++) {
+          const j = cell[ci];
+          if (j === i) continue;
+          const ox = e.x - enemies[j].x;
+          const oy = e.y - enemies[j].y;
+          const dist2 = ox*ox + oy*oy;
+          if (dist2 === 0) continue;
+          const minDist = e.r + enemies[j].r + CONFIG.separationDist;
+          if (dist2 < minDist * minDist) {
+            const f = CONFIG.separationStr / Math.sqrt(dist2);
+            mx += ox * f;
+            my += oy * f;
+          }
+        }
       }
     }
 
