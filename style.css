@@ -345,6 +345,16 @@ button:hover { background: #a0001f; }
   .upgrade-card { width: 220px; }
 }
 
+/* ── Landscape mobiel: d-pad in linker pillarbox ────────────────────────── */
+@media (max-width: 1024px) and (orientation: landscape) {
+  #dpad {
+    position: fixed;
+    left: calc(env(safe-area-inset-left, 0px) + 16px);
+    bottom: 50%;
+    transform: translateY(50%);
+  }
+}
+
 /* ── Landscape telefoon: weinig hoogte, verberg GIF ─────────────────────── */
 @media (max-height: 420px) {
   #start-img { display: none; }
