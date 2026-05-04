@@ -374,6 +374,7 @@ const PLAYER_SPAWN_POINTS = [
 ];
 let enemies     = [];
 let projectiles = [];  // { type, x, y, vx, vy, r, dmg, angle, bounces, pierced, slowDur, splashR }
+let bossProjectileCount = 0;
 let particles   = [];
 let deathEffects = [];  // { x, y, r, maxR, life, maxLife }
 let pickups      = [];  // { x, y, type, healAmt }
@@ -588,7 +589,7 @@ function resetGame() {
     cooldowns: {},
     swing: null, spinSwing: null, liniaalFlash: null,
   });
-  enemies = []; projectiles = []; particles = []; pickups = [];
+  enemies = []; projectiles = []; particles = []; pickups = []; bossProjectileCount = 0;
   wave = 1; wavePhase = 'fighting'; waveMessage = null; betweenWavesTimer = 0; elapsed = 0; graceTimer = 0; bananaSlipCount = 0;
   debris = DEBRIS_DEFS.map(d => ({ ...d, vx: 0, vy: 0, angularVel: 0, playerPushTimer: 0 }));
 }
@@ -605,7 +606,7 @@ function killEnemy(i) {
   if (enemies.length === 0 && wavePhase === 'fighting') {
     // Ruim overblijvende boss-projectielen op zodra de wave gewonnen is
     for (let k = projectiles.length - 1; k >= 0; k--) {
-      if (projectiles[k].fromBoss) projectiles.splice(k, 1);
+      if (projectiles[k].fromBoss) { projectiles.splice(k, 1); bossProjectileCount--; }
     }
     wavePhase = 'betweenWaves';
     betweenWavesTimer = CONFIG.waveBreakDuration;
@@ -798,8 +799,10 @@ function update(dt) {
     p.x += p.vx * dt; p.y += p.vy * dt;
     if (p.type === 'boek') p.angle += dt * 6;
     if (p.x < -40 || p.x > CONFIG.mapWidth + 40 || p.y < -40 || p.y > CONFIG.mapHeight + 40
-        || collidesWithObstacles(p.x, p.y, p.r))
+        || collidesWithObstacles(p.x, p.y, p.r)) {
+      if (p.fromBoss) bossProjectileCount--;
       projectiles.splice(i, 1);
+    }
   }
 
   // ── Enemies ──
@@ -823,13 +826,13 @@ function update(dt) {
       if (e.telegraphTimer > 0) {
         e.telegraphTimer -= dt;
         if (e.telegraphTimer <= 0) {
-          const bossProj = projectiles.filter(p => p.fromBoss).length;
-          if (bossProj < CONFIG.maxBossProj) {
+          if (bossProjectileCount < CONFIG.maxBossProj) {
             const bA = Math.atan2(player.y - e.y, player.x - e.x);
             projectiles.push({ type: 'baasgans', fromBoss: true,
               x: e.x, y: e.y, r: 14,
               vx: Math.cos(bA) * 180, vy: Math.sin(bA) * 180,
               dmg: CONFIG.contactDamage * 1.5 });
+            bossProjectileCount++;
           }
         }
       }
@@ -953,7 +956,7 @@ function update(dt) {
       player.hp -= p.dmg; player.invincible = CONFIG.playerIframes;
       playSound(sfxAuw);
       spawnParticles(player.x, player.y, '#8B0000', 8);
-      projectiles.splice(j, 1);
+      projectiles.splice(j, 1); bossProjectileCount--;
       if (player.hp <= 0) { player.hp = 0; endGame(); return; }
     }
 
@@ -1829,7 +1832,7 @@ function draw() {
 
   // ── Debug overlay (screen space) ──
   if (DEBUG) {
-  const bossProjs = projectiles.filter(p => p.fromBoss).length;
+  const bossProjs = bossProjectileCount;
   ctx.save();
   ctx.font = '11px monospace';
   ctx.textAlign = 'left';
