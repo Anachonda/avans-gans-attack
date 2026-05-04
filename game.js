@@ -379,6 +379,9 @@ let particles   = [];
 let deathEffects = [];  // { x, y, r, maxR, life, maxLife }
 let pickups      = [];  // { x, y, type, healAmt }
 
+// Offscreen sprite cache voor ganzen (key: `${r}|${color}`)
+const _gooseSprites = new Map();
+
 // Spatial grid voor enemy-separatie (preallocatie vermijdt GC per frame)
 const SEP_CELL = 64;
 const SEP_COLS = Math.ceil(CONFIG.mapWidth  / SEP_CELL) + 1;
@@ -1229,19 +1232,51 @@ function drawDebris() {
   }
 }
 
+function buildGooseSprite(r, color) {
+  const key = `${r}|${color}`;
+  let oc = _gooseSprites.get(key);
+  if (oc) return oc;
+  const sw = Math.ceil(r * 3);
+  const sh = Math.ceil(r * 1.8);
+  const ox = r, oy = sh / 2;
+  oc = document.createElement('canvas');
+  oc.width = sw; oc.height = sh;
+  const c = oc.getContext('2d');
+  const hx = ox + r * 1.02;
+  c.fillStyle = color;
+  c.beginPath(); c.ellipse(ox, oy, r, r*0.65, 0, 0, Math.PI*2); c.fill();
+  c.strokeStyle = '#ccc'; c.lineWidth = 0.8; c.stroke();
+  c.fillStyle = '#dcdcdc';
+  c.beginPath(); c.ellipse(ox, oy - r*0.48, r*0.55, r*0.17,  0.2, 0, Math.PI*2); c.fill();
+  c.beginPath(); c.ellipse(ox, oy + r*0.48, r*0.55, r*0.17, -0.2, 0, Math.PI*2); c.fill();
+  c.fillStyle = color;
+  c.beginPath(); c.ellipse(ox + r*0.72, oy, r*0.28, r*0.2, 0, 0, Math.PI*2); c.fill();
+  c.beginPath(); c.arc(hx, oy, r*0.27, 0, Math.PI*2); c.fill();
+  c.strokeStyle = '#ccc'; c.lineWidth = 0.5; c.stroke();
+  c.fillStyle = '#e67e22';
+  c.beginPath();
+  c.moveTo(hx + r*0.27, oy - r*0.09); c.lineTo(hx + r*0.52, oy); c.lineTo(hx + r*0.27, oy + r*0.09);
+  c.closePath(); c.fill();
+  c.fillStyle = '#111';
+  c.beginPath(); c.arc(hx + r*0.08, oy - r*0.09, r*0.065, 0, Math.PI*2); c.fill();
+  c.fillStyle = '#fff';
+  c.beginPath(); c.arc(hx + r*0.1,  oy - r*0.11, r*0.025, 0, Math.PI*2); c.fill();
+  _gooseSprites.set(key, oc);
+  return oc;
+}
+
 function drawGoose(e) {
   const { x, y, r, hp, maxHp, tier, slowTimer, hitTimer, type } = e;
   const angle = Math.atan2(player.y - e.y, player.x - e.x);
   const tDef  = ENEMY_TYPES[type] || ENEMY_TYPES.normal;
   const baseColor = tDef.color || (tier < 2 ? '#f5f5f5' : tier < 4 ? '#f0e8d0' : '#e8d0b0');
-  const bodyColor = (hitTimer > 0) ? '#ffffff' : baseColor;
+  const color = (hitTimer > 0) ? '#ffffff' : baseColor;
 
-  ctx.save();
+  // Shadow — geen save/restore nodig: globalAlpha en fillStyle worden daarna overschreven
   ctx.globalAlpha = 0.18;
   ctx.fillStyle = '#000';
-  ctx.beginPath(); ctx.ellipse(x + r * 0.15, y + r * 0.55, r * 0.85, r * 0.28, 0, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(x + r*0.15, y + r*0.55, r*0.85, r*0.28, 0, 0, Math.PI*2); ctx.fill();
   ctx.globalAlpha = 1;
-  ctx.restore();
 
   ctx.save();
   ctx.translate(x, y);
@@ -1250,43 +1285,18 @@ function drawGoose(e) {
   if (slowTimer > 0) {
     ctx.globalAlpha = 0.35;
     ctx.fillStyle = '#3498db';
-    ctx.beginPath();
-    ctx.ellipse(0, 0, r * 1.2, r * 0.9, 0, 0, Math.PI * 2);
-    ctx.fill();
+    ctx.beginPath(); ctx.ellipse(0, 0, r*1.2, r*0.9, 0, 0, Math.PI*2); ctx.fill();
     ctx.globalAlpha = 1;
   }
 
-  ctx.fillStyle = bodyColor;
-  ctx.beginPath(); ctx.ellipse(0, 0, r, r * 0.65, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.strokeStyle = '#ccc'; ctx.lineWidth = 0.8; ctx.stroke();
-
-  ctx.fillStyle = '#dcdcdc';
-  ctx.beginPath(); ctx.ellipse(0, -r*0.48, r*0.55, r*0.17, 0.2, 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.ellipse(0,  r*0.48, r*0.55, r*0.17,-0.2, 0, Math.PI*2); ctx.fill();
-
-  ctx.fillStyle = bodyColor;
-  ctx.beginPath(); ctx.ellipse(r*0.72, 0, r*0.28, r*0.2, 0, 0, Math.PI*2); ctx.fill();
-
-  const hx = r * 1.02;
-  ctx.fillStyle = bodyColor;
-  ctx.beginPath(); ctx.arc(hx, 0, r*0.27, 0, Math.PI*2); ctx.fill();
-  ctx.strokeStyle = '#ccc'; ctx.lineWidth = 0.5; ctx.stroke();
-
-  ctx.fillStyle = '#e67e22';
-  ctx.beginPath();
-  ctx.moveTo(hx+r*0.27, -r*0.09); ctx.lineTo(hx+r*0.52, 0); ctx.lineTo(hx+r*0.27, r*0.09);
-  ctx.closePath(); ctx.fill();
-
-  ctx.fillStyle = '#111';
-  ctx.beginPath(); ctx.arc(hx+r*0.08, -r*0.09, r*0.065, 0, Math.PI*2); ctx.fill();
-  ctx.fillStyle = '#fff';
-  ctx.beginPath(); ctx.arc(hx+r*0.1, -r*0.11, r*0.025, 0, Math.PI*2); ctx.fill();
+  const sprite = buildGooseSprite(r, color);
+  ctx.drawImage(sprite, -r, -sprite.height / 2, sprite.width, sprite.height);
 
   ctx.restore();
 
   const bw = r*2.5, bh = 4;
-  ctx.fillStyle = '#333'; ctx.fillRect(x-bw/2, y-r-10, bw, bh);
-  ctx.fillStyle = '#2ecc71'; ctx.fillRect(x-bw/2, y-r-10, bw*(hp/maxHp), bh);
+  ctx.fillStyle = '#333';  ctx.fillRect(x - bw/2, y - r - 10, bw, bh);
+  ctx.fillStyle = '#2ecc71'; ctx.fillRect(x - bw/2, y - r - 10, bw * (hp/maxHp), bh);
 }
 
 function drawStudent() {
