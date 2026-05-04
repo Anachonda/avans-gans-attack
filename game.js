@@ -429,7 +429,8 @@ function rand(min, max) { return min + Math.random() * (max - min); }
 function getNearestEnemy() {
   let best = null, bestD = Infinity;
   for (const e of enemies) {
-    const d = Math.hypot(e.x - player.x, e.y - player.y);
+    const dx = e.x - player.x, dy = e.y - player.y;
+    const d = dx*dx + dy*dy;
     if (d < bestD) { bestD = d; best = e; }
   }
   return best;
@@ -438,7 +439,8 @@ function getNearestEnemy() {
 function getFarthestEnemy() {
   let best = null, bestD = -Infinity;
   for (const e of enemies) {
-    const d = Math.hypot(e.x - player.x, e.y - player.y);
+    const dx = e.x - player.x, dy = e.y - player.y;
+    const d = dx*dx + dy*dy;
     if (d > bestD) { bestD = d; best = e; }
   }
   return best;
@@ -453,7 +455,8 @@ function collidesWithObstacles(x, y, r, checkPond = false) {
   for (const o of list) {
     const cx = Math.max(o.x, Math.min(o.x + o.w, x));
     const cy = Math.max(o.y, Math.min(o.y + o.h, y));
-    if (Math.hypot(cx - x, cy - y) < r) return true;
+    const ocx = cx - x, ocy = cy - y;
+    if (ocx*ocx + ocy*ocy < r*r) return true;
   }
   return false;
 }
@@ -472,9 +475,11 @@ function spawnParticles(x, y, color, count = 6) {
 function spawnOneEnemy(waveNum, type) {
   // Kies een vaste spawnpunt dat ver genoeg van de speler ligt
   const minDist = CONFIG.spawnMinDist;
-  const far = ENEMY_SPAWN_POINTS.filter(p =>
-    Math.hypot(p.x - player.x, p.y - player.y) >= minDist
-  );
+  const minDist2 = minDist * minDist;
+  const far = ENEMY_SPAWN_POINTS.filter(p => {
+    const sdx = p.x - player.x, sdy = p.y - player.y;
+    return sdx*sdx + sdy*sdy >= minDist2;
+  });
   const pool = far.length > 0 ? far : ENEMY_SPAWN_POINTS;
   const sp = pool[Math.floor(Math.random() * pool.length)];
   const x = sp.x + rand(-12, 12);
@@ -810,7 +815,7 @@ function update(dt) {
       e.y += e.kby * dt;
       e.kbx *= Math.max(0, 1 - dt * 12);
       e.kby *= Math.max(0, 1 - dt * 12);
-      if (Math.hypot(e.kbx, e.kby) < 1) { e.kbx = 0; e.kby = 0; }
+      if (e.kbx*e.kbx + e.kby*e.kby < 1) { e.kbx = 0; e.kby = 0; }
     }
     // Boss: schiet periodiek op de speler (geluid als telegraph, projectile 0.25s later)
     if (e.type === 'bossGoose') {
@@ -884,7 +889,8 @@ function update(dt) {
     }
 
     // Hits player
-    if (player.invincible <= 0 && Math.hypot(e.x - player.x, e.y - player.y) < e.r + player.r) {
+    const cdx = e.x - player.x, cdy = e.y - player.y, cR = e.r + player.r;
+    if (player.invincible <= 0 && cdx*cdx + cdy*cdy < cR*cR) {
       player.hp -= CONFIG.contactDamage; player.invincible = CONFIG.playerIframes;
       playSound(sfxAuw);
       spawnParticles(player.x, player.y, '#e74c3c', 8);
@@ -895,8 +901,8 @@ function update(dt) {
 
     // Paraplu
     if (player.swing && !player.swing.hitSet.has(i)) {
-      const dist = Math.hypot(e.x - player.x, e.y - player.y);
-      if (dist < pDef.reach[pLvl] + e.r) {
+      const pdx = e.x - player.x, pdy = e.y - player.y, pR = pDef.reach[pLvl] + e.r;
+      if (pdx*pdx + pdy*pdy < pR*pR) {
         let diff = Math.atan2(e.y - player.y, e.x - player.x) - player.swing.angle;
         while (diff > Math.PI) diff -= Math.PI * 2;
         while (diff < -Math.PI) diff += Math.PI * 2;
@@ -914,7 +920,8 @@ function update(dt) {
 
     // Passer (spin)
     if (player.spinSwing && !player.spinSwing.hitSet.has(i)) {
-      if (Math.hypot(e.x - player.x, e.y - player.y) < player.spinSwing.reach + e.r) {
+      const ssdx = e.x - player.x, ssdy = e.y - player.y, ssR = player.spinSwing.reach + e.r;
+      if (ssdx*ssdx + ssdy*ssdy < ssR*ssR) {
         player.spinSwing.hitSet.add(i);
         const critMult = e.hp < e.maxHp / 2 ? 2 : 1;
         killed = damageEnemy(i, player.spinSwing.dmg * critMult);
@@ -942,7 +949,7 @@ function update(dt) {
       const p = projectiles[j];
       if (!p.fromBoss) continue;
       if (player.invincible > 0) continue;
-      if (Math.hypot(p.x - player.x, p.y - player.y) > p.r + player.r) continue;
+      if ((p.x-player.x)*(p.x-player.x)+(p.y-player.y)*(p.y-player.y) > (p.r+player.r)*(p.r+player.r)) continue;
       player.hp -= p.dmg; player.invincible = CONFIG.playerIframes;
       playSound(sfxAuw);
       spawnParticles(player.x, player.y, '#8B0000', 8);
@@ -954,7 +961,7 @@ function update(dt) {
     for (let j = projectiles.length - 1; j >= 0; j--) {
       const p = projectiles[j];
       if (p.fromBoss) continue;
-      if (Math.hypot(p.x - e.x, p.y - e.y) > p.r + e.r) continue;
+      if ((p.x-e.x)*(p.x-e.x)+(p.y-e.y)*(p.y-e.y) > (p.r+e.r)*(p.r+e.r)) continue;
 
       if (p.type === 'gum') {
         spawnParticles(e.x, e.y, '#f39c12', 3);
@@ -963,7 +970,7 @@ function update(dt) {
           // Bounce: redirect to next nearest enemy
           p.bouncesLeft--;
           const next = enemies.filter((_, idx) => idx !== i)
-            .sort((a, b) => Math.hypot(a.x-p.x,a.y-p.y) - Math.hypot(b.x-p.x,b.y-p.y))[0];
+            .sort((a, b) => { const adx=a.x-p.x,ady=a.y-p.y,bdx=b.x-p.x,bdy=b.y-p.y; return adx*adx+ady*ady-(bdx*bdx+bdy*bdy); })[0];
           if (next) {
             const spd2 = Math.hypot(p.vx, p.vy);
             const na = Math.atan2(next.y - p.y, next.x - p.x);
@@ -981,9 +988,11 @@ function update(dt) {
         e.slowTimer = p.slowDur;
         if (p.splash) {
           // Splash: damage + slow overige vijanden (sla i over – die krijgt aparte full damage)
+          const splashR2 = p.splashR * p.splashR;
           for (let k = enemies.length - 1; k >= 0; k--) {
             if (k === i) continue;
-            if (Math.hypot(enemies[k].x - p.x, enemies[k].y - p.y) < p.splashR) {
+            const tkdx = enemies[k].x-p.x, tkdy = enemies[k].y-p.y;
+            if (tkdx*tkdx+tkdy*tkdy < splashR2) {
               enemies[k].slowTimer = p.slowDur;
               damageEnemy(k, Math.ceil(p.dmg / 2));
             }
@@ -1002,15 +1011,18 @@ function update(dt) {
 
       if (p.type === 'rugzak') {
         // Splash damage alle vijanden in straal (sla i over – aparte check erna)
+        const splashR2 = p.splashR * p.splashR;
         for (let k = enemies.length - 1; k >= 0; k--) {
           if (k === i) continue;
-          if (Math.hypot(enemies[k].x - p.x, enemies[k].y - p.y) < p.splashR) {
+          const rkdx = enemies[k].x-p.x, rkdy = enemies[k].y-p.y;
+          if (rkdx*rkdx+rkdy*rkdy < splashR2) {
             damageEnemy(k, p.dmg);
           }
         }
         // Schade aan de direct geraakte vijand (hercheck index na splices)
-        if (i < enemies.length && Math.hypot(enemies[i].x - p.x, enemies[i].y - p.y) < p.splashR) {
-          damageEnemy(i, p.dmg);
+        if (i < enemies.length) {
+          const ridx = enemies[i].x-p.x, ridy = enemies[i].y-p.y;
+          if (ridx*ridx+ridy*ridy < splashR2) damageEnemy(i, p.dmg);
         }
         spawnParticles(p.x, p.y, '#8B4513', 14);
         projectiles.splice(j, 1);
@@ -1082,12 +1094,11 @@ function update(dt) {
 
     // Blikje/papierprop raakt gans (alleen als door speler gegooid)
     if (d.type !== 'bananenschil' && d.playerPushTimer > 0) {
-      const speed = Math.hypot(d.vx, d.vy);
-      if (speed > 25) {
+      if (d.vx*d.vx + d.vy*d.vy > 625) {
         for (let ei = enemies.length - 1; ei >= 0; ei--) {
           const e = enemies[ei];
-          const ddx = d.x - e.x, ddy = d.y - e.y;
-          if (Math.hypot(ddx, ddy) < DEBRIS_HIT_R[d.type] + e.r) {
+          const ddx = d.x - e.x, ddy = d.y - e.y, dR = DEBRIS_HIT_R[d.type] + e.r;
+          if (ddx*ddx + ddy*ddy < dR*dR) {
             damageEnemy(ei, 5);
             d.vx *= -0.4; d.vy *= -0.4;
             d.playerPushTimer = 0;
@@ -1099,8 +1110,8 @@ function update(dt) {
 
     // Bananenschil raakt speler → val (valtijd neemt toe per keer)
     if (d.type === 'bananenschil' && player.fallTimer <= 0) {
-      const ddx = player.x - d.x, ddy = player.y - d.y;
-      if (Math.hypot(ddx, ddy) < player.r + DEBRIS_HIT_R.bananenschil) {
+      const ddx = player.x - d.x, ddy = player.y - d.y, bR = player.r + DEBRIS_HIT_R.bananenschil;
+      if (ddx*ddx + ddy*ddy < bR*bR) {
         bananaSlipCount++;
         player.fallTimer = bananaSlipCount;
         playSound(sfxBanaan);
