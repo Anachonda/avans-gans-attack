@@ -685,11 +685,11 @@ function update(dt) {
   if (graceTimer > 0) graceTimer = Math.max(0, graceTimer - dt);
 
   // Movement
+  let dx = 0, dy = 0;
   if (player.fallTimer > 0) {
     player.fallTimer -= dt;
     player.vx = 0; player.vy = 0;
   } else {
-    let dx = 0, dy = 0;
     if (keys['ArrowLeft']  || keys['a'] || keys['A']) dx -= 1;
     if (keys['ArrowRight'] || keys['d'] || keys['D']) dx += 1;
     if (keys['ArrowUp']    || keys['w'] || keys['W']) dy -= 1;
@@ -1933,8 +1933,12 @@ function loop(ts) {
   if (state !== 'playing') return;
   const dt = Math.min((ts - lastTime) / 1000, 0.05);
   lastTime = ts;
-  update(dt);
-  draw();
+  try {
+    update(dt);
+    draw();
+  } catch (err) {
+    console.error('Game loop exception:', err);
+  }
   requestAnimationFrame(loop);
 }
 
