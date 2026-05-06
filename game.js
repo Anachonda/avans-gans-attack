@@ -311,6 +311,11 @@ const player = {
   swing:     null,   // paraplu swing { angle, progress, duration, hitSet }
   spinSwing: null,   // passer spin   { progress, duration, hitSet }
   liniaalFlash: null, // { angle, progress, duration, hitSet }
+
+  // Herbruikbare hit-sets: clear() per swing ipv new Set() elke keer (minder GC)
+  _parapluHits: new Set(),
+  _passerHits:  new Set(),
+  _liniaalHits: new Set(),
 };
 
 const camera    = { x: 0, y: 0 };
@@ -611,6 +616,13 @@ function resetGame() {
     cooldowns: {},
     swing: null, spinSwing: null, liniaalFlash: null,
   });
+  player._parapluHits.clear();
+  player._passerHits.clear();
+  player._liniaalHits.clear();
+  // Stagger startwapen zodat het niet direct op frame 1 afvuurt
+  { const sid = Object.keys(player.weapons)[0];
+    const sdef = WEAPON_DEFS[sid];
+    player.cooldowns[sid] = rand(0, sdef.interval ? sdef.interval[0] : 1 / sdef.rate[0]); }
   enemies = []; projectiles = []; particles = []; pickups = []; bossProjectileCount = 0;
   wave = 1; wavePhase = 'fighting'; waveMessage = null; betweenWavesTimer = 0; elapsed = 0; graceTimer = 0; bananaSlipCount = 0;
   debris = DEBRIS_DEFS.map(d => ({ ...d, vx: 0, vy: 0, angularVel: 0, playerPushTimer: 0 }));
@@ -710,7 +722,8 @@ function update(dt) {
     cd.paraplu = (cd.paraplu || 0) - dt;
     if (cd.paraplu <= 0 && !player.swing && nearest) {
       const angle = Math.atan2(nearest.y - player.y, nearest.x - player.x);
-      player.swing = { angle, progress: 0, duration: 0.4, hitSet: new Set() };
+      player._parapluHits.clear();
+      player.swing = { angle, progress: 0, duration: 0.4, hitSet: player._parapluHits };
       playSfx('paraplu');
       if (pDef.double[pLvl]) {
         player.swing.double = true;
@@ -730,7 +743,8 @@ function update(dt) {
     cd.passer = (cd.passer || 0) - dt;
     if (cd.passer <= 0 && !player.spinSwing) {
       playSfx('passer');
-      player.spinSwing = { progress: 0, duration: 0.5, hitSet: new Set(),
+      player._passerHits.clear();
+      player.spinSwing = { progress: 0, duration: 0.5, hitSet: player._passerHits,
         reach: passDef.reach[passLvl], dmg: passDef.dmg[passLvl] };
       cd.passer = jitter(passDef.interval[passLvl]);
     }
@@ -747,9 +761,10 @@ function update(dt) {
     cd.liniaal = (cd.liniaal || 0) - dt;
     if (cd.liniaal <= 0 && !player.liniaalFlash && nearest) {
       playSfx('liniaal');
+      player._liniaalHits.clear();
       player.liniaalFlash = { angle: player.facingAngle, progress: 0,
         length: linDef.length[linLvl], width: linDef.width[linLvl],
-        dmg: linDef.dmg[linLvl], hitSet: new Set() };
+        dmg: linDef.dmg[linLvl], hitSet: player._liniaalHits };
       cd.liniaal = jitter(1 / linDef.rate[linLvl]);
     }
   }
@@ -1011,10 +1026,15 @@ function update(dt) {
         spawnParticles(e.x, e.y, '#f39c12', 3);
         killed = damageEnemy(i, p.dmg);
         if (p.bouncesLeft > 0) {
-          // Bounce: redirect to next nearest enemy
+          // Bounce: redirect to next nearest enemy (O(n) scan, geen tijdelijke arrays)
           p.bouncesLeft--;
-          const next = enemies.filter((_, idx) => idx !== i)
-            .sort((a, b) => { const adx=a.x-p.x,ady=a.y-p.y,bdx=b.x-p.x,bdy=b.y-p.y; return adx*adx+ady*ady-(bdx*bdx+bdy*bdy); })[0];
+          let next = null, nextD2 = Infinity;
+          for (let ni = 0; ni < enemies.length; ni++) {
+            if (ni === i) continue;
+            const ndx = enemies[ni].x - p.x, ndy = enemies[ni].y - p.y;
+            const nd2 = ndx*ndx + ndy*ndy;
+            if (nd2 < nextD2) { nextD2 = nd2; next = enemies[ni]; }
+          }
           if (next) {
             const spd2 = Math.hypot(p.vx, p.vy);
             const na = Math.atan2(next.y - p.y, next.x - p.x);
@@ -1955,8 +1975,15 @@ function showLevelUp() {
     card.className = 'upgrade-card';
     card.innerHTML = `<h3>${u.name}</h3><p>${u.desc}</p>`;
     card.addEventListener('click', () => {
-      if (u.weaponId) player.weapons[u.weaponId] = u.newLevel;
-      else u.apply();
+      if (u.weaponId) {
+        player.weapons[u.weaponId] = u.newLevel;
+        if (u.newLevel === 1) {
+          // Nieuw wapen: geef het een willekeurige startcooldown zodat het niet
+          // direct op frame 1 samen met andere wapens afvuurt
+          const nd = WEAPON_DEFS[u.weaponId];
+          player.cooldowns[u.weaponId] = rand(0, nd.interval ? nd.interval[0] : 1 / nd.rate[0]);
+        }
+      } else u.apply();
       levelPanel.classList.add('hidden');
       wave++;
       wavePhase = 'startingWave';
