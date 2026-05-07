@@ -208,6 +208,11 @@ const overlayBtn       = document.getElementById('overlay-btn');
 const levelPanel       = document.getElementById('level-up-panel');
 const waveCompleteTitle = document.getElementById('wave-complete-title');
 const upgradeOpts      = document.getElementById('upgrade-options');
+const pausePanel          = document.getElementById('pause-panel');
+const pauseBtn            = document.getElementById('pause-btn');
+const resumeBtn           = document.getElementById('resume-btn');
+const mainMenuBtn         = document.getElementById('mainmenu-btn');
+const overlayMainMenuBtn  = document.getElementById('overlay-mainmenu-btn');
 
 // ─── Enemy types ─────────────────────────────────────────────────────────────
 const ENEMY_TYPES = {
@@ -405,7 +410,13 @@ const SEP_ROWS = Math.ceil(CONFIG.mapHeight / SEP_CELL) + 1;
 const _sepGrid = Array.from({ length: SEP_COLS * SEP_ROWS }, () => []);
 
 const keys = {};
-window.addEventListener('keydown', e => { keys[e.key] = true; });
+window.addEventListener('keydown', e => {
+  keys[e.key] = true;
+  if (e.key === 'Escape') {
+    if (state === 'playing') pauseGame();
+    else if (state === 'paused') resumeGame();
+  }
+});
 window.addEventListener('keyup',   e => { keys[e.key] = false; });
 
 // D-pad: één cirkel-element, richting bepaald door positie t.o.v. middelpunt
@@ -1953,11 +1964,14 @@ function startGame() {
   spawnEnemiesForWave(wave);
   waveMessage = { text: 'Wave 1!', timer: 1.5 };
   lastTime = performance.now();
+  pauseBtn.classList.remove('hidden');
   requestAnimationFrame(loop);
 }
 
 function endGame() {
   state = 'dead';
+  pauseBtn.classList.add('hidden');
+  overlayMainMenuBtn.classList.remove('hidden');
   saveHighscore(wave, Math.floor(elapsed));
   overlayTitle.textContent = 'Game Over';
   overlayMsg.textContent   = `Je overleefde ${Math.floor(elapsed)}s en haalde wave ${wave}!`;
@@ -1970,6 +1984,7 @@ function endGame() {
 
 function showLevelUp() {
   state = 'levelup';
+  pauseBtn.classList.add('hidden');
   waveCompleteTitle.textContent = `Wave ${wave} voltooid!`;
   upgradeOpts.innerHTML = '';
   const pool    = buildUpgradePool();
@@ -1995,6 +2010,7 @@ function showLevelUp() {
       waveMessage = { text: `Wave ${wave} start!`, timer: CONFIG.waveBreakDuration };
       state = 'playing';
       lastTime = performance.now();
+      pauseBtn.classList.remove('hidden');
       requestAnimationFrame(loop);
     });
     upgradeOpts.appendChild(card);
@@ -2014,6 +2030,45 @@ soundToggleBtn.addEventListener('click', e => {
     startMusic();
   }
 });
+
+// ─── Pauze ────────────────────────────────────────────────────────────────────
+const VOLUME_PAUSED = 0.025;
+
+function pauseGame() {
+  if (state !== 'playing') return;
+  state = 'paused';
+  Object.values(MUSIC_TRACKS).forEach(t => { t.volume = VOLUME_PAUSED; });
+  pauseBtn.classList.add('hidden');
+  pausePanel.classList.remove('hidden');
+}
+
+function resumeGame() {
+  if (state !== 'paused') return;
+  pausePanel.classList.add('hidden');
+  if (soundEnabled) Object.values(MUSIC_TRACKS).forEach(t => { t.volume = CONFIG.volumeMusic; });
+  state = 'playing';
+  lastTime = performance.now();
+  pauseBtn.classList.remove('hidden');
+  requestAnimationFrame(loop);
+}
+
+function goToMainMenu() {
+  state = 'idle';
+  Object.values(MUSIC_TRACKS).forEach(t => { t.pause(); t.currentTime = 0; t.volume = CONFIG.volumeMusic; });
+  pausePanel.classList.add('hidden');
+  pauseBtn.classList.add('hidden');
+  overlayMainMenuBtn.classList.add('hidden');
+  overlayTitle.textContent = 'Avans Gans Attack';
+  overlayMsg.innerHTML     = 'Overleef golven van boze ganzen!<br>Beweeg met WASD of de pijltjestoetsen.';
+  overlayBtn.textContent   = 'Start';
+  updateHighscoreBox();
+  overlay.classList.remove('hidden');
+}
+
+pauseBtn.addEventListener('click',           () => pauseGame());
+resumeBtn.addEventListener('click',          () => resumeGame());
+mainMenuBtn.addEventListener('click',        () => goToMainMenu());
+overlayMainMenuBtn.addEventListener('click', () => goToMainMenu());
 
 // ─── Startscherm ─────────────────────────────────────────────────────────────
 overlayBtn.addEventListener('click', () => {

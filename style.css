@@ -154,6 +154,22 @@ button:hover { background: #a0001f; }
 
 #sound-toggle:hover { background: rgba(198,0,42,0.15); color: #fff; }
 
+#pause-btn {
+  margin-left: 8px;
+  padding: 2px 8px;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  background: transparent;
+  color: #ccc;
+  border: 1px solid rgba(255,255,255,0.3);
+  border-radius: 4px;
+  min-width: 32px;
+  min-height: 28px;
+}
+
+#pause-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+#pause-btn.hidden { display: none; }
+
 #highscore-box {
   margin: 0 0 18px;
   font-size: 0.85rem;
@@ -182,6 +198,51 @@ button:hover { background: #a0001f; }
   white-space: nowrap;
   pointer-events: none;
 }
+
+/* ── Pauze-panel ────────────────────────────────────────────────────────── */
+#pause-panel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.75);
+  z-index: 30;
+}
+
+#pause-panel.hidden { display: none; }
+
+#pause-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 36px 52px;
+  background: #1c1c28;
+  border: 2px solid #C6002A;
+  border-radius: 12px;
+  text-align: center;
+}
+
+#pause-box h2 {
+  font-size: 1.8rem;
+  color: #C6002A;
+  margin-bottom: 4px;
+  letter-spacing: 0.04em;
+}
+
+#mainmenu-btn,
+#overlay-mainmenu-btn {
+  background: transparent;
+  color: #ccc;
+  border: 1px solid #C6002A;
+  padding: 10px 28px;
+}
+
+#mainmenu-btn:hover,
+#overlay-mainmenu-btn:hover { background: rgba(198,0,42,0.15); color: #fff; }
+
+#overlay-mainmenu-btn.hidden { display: none; }
 
 /* ── Level-up upgrade panel ─────────────────────────────────────────────── */
 #level-up-panel {
@@ -297,6 +358,7 @@ button:hover { background: #a0001f; }
   }
 
   #overlay:not(.hidden) ~ #dpad,
+  #pause-panel:not(.hidden) ~ #dpad,
   #level-up-panel:not(.hidden) ~ #dpad {
     display: none;
   }
