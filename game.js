@@ -114,7 +114,8 @@ const sfxBoek    = new Audio('Sounds/Boek.wav');
 const sfxPasser  = new Audio('Sounds/Passer1.wav');
 const sfxLiniaal = new Audio('Sounds/Lineaal.wav');
 const sfxRugzak  = new Audio('Sounds/Rugzak.wav');
-const sfxThermos = new Audio('Sounds/Thermos.wav');
+const sfxThermos  = new Audio('Sounds/Thermos.wav');
+const sfxKauwgom  = new Audio('Sounds/KauwgomPlaatsen.wav');
 sfxParaplu.volume = CONFIG.volumeParaplu;
 sfxGum.volume     = CONFIG.volumeGum;
 sfxGans.volume    = CONFIG.volumeGans;
@@ -148,7 +149,7 @@ function playSound(sfx) {
 
 const WEAPON_SFX = { paraplu: sfxParaplu, gum: sfxGum, gans: sfxGans,
                      boek: sfxBoek, passer: sfxPasser, liniaal: sfxLiniaal,
-                     rugzak: sfxRugzak, thermos: sfxThermos };
+                     rugzak: sfxRugzak, thermos: sfxThermos, kauwgom: sfxKauwgom };
 function playSfx(id) { if (WEAPON_SFX[id]) playSound(WEAPON_SFX[id]); }
 
 // Subtle timing jitter (±4%) to make weapon cadence feel organic
@@ -213,6 +214,11 @@ const pauseBtn            = document.getElementById('pause-btn');
 const resumeBtn           = document.getElementById('resume-btn');
 const mainMenuBtn         = document.getElementById('mainmenu-btn');
 const overlayMainMenuBtn  = document.getElementById('overlay-mainmenu-btn');
+const countdownPanel      = document.getElementById('countdown-panel');
+const countdownNumber     = document.getElementById('countdown-number');
+const countdownWeaponName  = document.getElementById('countdown-weapon-name');
+const countdownWeaponDesc  = document.getElementById('countdown-weapon-desc');
+const countdownWeaponStats = document.getElementById('countdown-weapon-stats');
 
 // ─── Enemy types ─────────────────────────────────────────────────────────────
 const ENEMY_TYPES = {
@@ -245,10 +251,20 @@ const WEAPON_DEFS = {
   },
   passer: {
     label: 'Passer',
+    disabled: true,
     maxLevel: 5,
     dmg:      [2, 3, 5, 7, 9],
     reach:    [70, 80, 90, 100, 115],
     interval: [4, 3.2, 2.5, 2.0, 1.4],
+  },
+  kauwgom: {
+    label: 'Kauwgom',
+    maxLevel: 5,
+    dmg:      [3, 5, 7, 10, 14],
+    rate:     [0.2, 0.3, 0.45, 0.6, 0.8],
+    slowDur:  [2, 2.5, 3, 3.5, 4],
+    splashR:  [25, 32, 42, 54, 68],
+    lifetime: [8, 10, 12, 15, 20],
   },
   gum: {
     label: 'Gum',
@@ -395,6 +411,7 @@ const PLAYER_SPAWN_POINTS = [
 ];
 let enemies     = [];
 let projectiles = [];  // { type, x, y, vx, vy, r, dmg, angle, bounces, pierced, slowDur, splashR }
+let mines       = [];  // { x, y, r, lifetime, maxLifetime, dmg, slowDur, splashR }
 let bossProjectileCount = 0;
 let particles   = [];
 let deathEffects = [];  // { x, y, r, maxR, life, maxLife }
@@ -568,6 +585,7 @@ function spawnEnemiesForWave(waveNum) {
 function buildUpgradePool() {
   const pool = [];
   for (const [id, def] of Object.entries(WEAPON_DEFS)) {
+    if (def.disabled) continue;
     const current = player.weapons[id] || 0;
     if (current === 0) {
       pool.push({ weaponId: id, newLevel: 1,
@@ -591,6 +609,19 @@ function buildUpgradePool() {
   return pool;
 }
 
+function weaponMechanic(id) {
+  switch (id) {
+    case 'paraplu':  return 'Zwaait automatisch naar de dichtstbijzijnde gans. Op level 5 dubbele zwaai.';
+    case 'boek':     return 'Schiet een boek op de verste gans. Hogere levels doorboren meerdere ganzen.';
+    case 'kauwgom':  return 'Legt kauwgommijnen neer op de grond. Een gans die eroverheen loopt raakt vertraagd en loopt schade op. Mijnen vervagen en verdwijnen na verloop van tijd.';
+    case 'gum':      return 'Schiet een bouncende gum die van de muren afketst en meerdere ganzen kan raken.';
+    case 'thermos':  return 'Schiet koffie op de dichtstbijzijnde gans. Vertraagt de gans tijdelijk. Hogere levels raken ook omliggende ganzen.';
+    case 'liniaal':  return 'Flitst een liniaal naar de dichtstbijzijnde gans voor hoge directe schade.';
+    case 'rugzak':   return 'Smijt een rugzak die bij inslag ontploft. Raakt alle ganzen in de explosiestraal.';
+    default: return '';
+  }
+}
+
 function upgradeDesc(id, level) {
   const i = level - 1;
   const d = WEAPON_DEFS[id];
@@ -598,6 +629,7 @@ function upgradeDesc(id, level) {
     case 'paraplu':  return `Schade ${d.dmg[i]}, bereik ${d.reach[i]}px${d.double[i] ? ', dubbele zwaai!' : ''}`;
     case 'boek':     return `Schade ${d.dmg[i]}, ${d.rate[i].toFixed(1)}/s${d.piercing[i] ? ', doorboorend' : ''}`;
     case 'passer':   return `Schade ${d.dmg[i]}, elke ${d.interval[i]}s rondzwaai`;
+    case 'kauwgom':  return `Schade ${d.dmg[i]}, elke ${(1/d.rate[i]).toFixed(1)}s mijn, ${d.lifetime[i]}s actief, straal ${d.splashR[i]}px`;
     case 'gum':      return `Schade ${d.dmg[i]}, ${d.rate[i].toFixed(1)}/s${d.bounces[i] > 0 ? `, ${d.bounces[i]}x bounce` : ''}`;
     case 'thermos':  return `Schade ${d.dmg[i]}, vertraagt ${d.slow[i]}s${d.splash[i] ? ', splash!' : ''}`;
     case 'liniaal':  return `Schade ${d.dmg[i]}, lengte ${d.length[i]}px`;
@@ -623,7 +655,7 @@ function resetGame() {
     diagMult: 0.707,
     fallTimer: 0,
     facingAngle: 0, invincible: 0,
-    weapons: { [Object.keys(WEAPON_DEFS)[Math.floor(Math.random() * Object.keys(WEAPON_DEFS).length)]]: 1 },
+    weapons: { [(k => k[Math.floor(Math.random() * k.length)])(Object.keys(WEAPON_DEFS).filter(k => !WEAPON_DEFS[k].disabled))]: 1 },
     cooldowns: {},
     swing: null, spinSwing: null, liniaalFlash: null,
   });
@@ -634,7 +666,7 @@ function resetGame() {
   { const sid = Object.keys(player.weapons)[0];
     const sdef = WEAPON_DEFS[sid];
     player.cooldowns[sid] = rand(0, sdef.interval ? sdef.interval[0] : 1 / sdef.rate[0]); }
-  enemies = []; projectiles = []; particles = []; pickups = []; bossProjectileCount = 0;
+  enemies = []; projectiles = []; mines = []; particles = []; pickups = []; bossProjectileCount = 0;
   wave = 1; wavePhase = 'fighting'; waveMessage = null; betweenWavesTimer = 0; elapsed = 0; graceTimer = 0; bananaSlipCount = 0;
   debris = DEBRIS_DEFS.map(d => ({ ...d, vx: 0, vy: 0, angularVel: 0, playerPushTimer: 0 }));
 }
@@ -839,6 +871,45 @@ function update(dt) {
         r: 14, dmg: rDef.dmg[rLvl], splashR: rDef.splashR[rLvl] });
       cd.rugzak = jitter(1 / rDef.rate[rLvl]);
     }
+  }
+
+  // ── Kauwgom ──
+  if (player.weapons.kauwgom && !isFallen) {
+    const kLvl = wlvl('kauwgom');
+    const kDef = WEAPON_DEFS.kauwgom;
+    cd.kauwgom = (cd.kauwgom || 0) - dt;
+    if (cd.kauwgom <= 0) {
+      playSfx('kauwgom');
+      const lt = kDef.lifetime[kLvl];
+      mines.push({ x: player.x, y: player.y, r: 14, lifetime: lt, maxLifetime: lt,
+        dmg: kDef.dmg[kLvl], slowDur: kDef.slowDur[kLvl], splashR: kDef.splashR[kLvl] });
+      cd.kauwgom = jitter(1 / kDef.rate[kLvl]);
+    }
+  }
+
+  // ── Kauwgom mines update + collision ──
+  for (let m = mines.length - 1; m >= 0; m--) {
+    const mine = mines[m];
+    mine.lifetime -= dt;
+    if (mine.lifetime <= 0) { swapRemove(mines, m); continue; }
+    let triggered = false;
+    for (let i = 0; i < enemies.length; i++) {
+      const e = enemies[i];
+      const dx = e.x - mine.x, dy = e.y - mine.y, tr = mine.r + e.r;
+      if (dx*dx + dy*dy < tr*tr) { triggered = true; break; }
+    }
+    if (!triggered) continue;
+    const splashR2 = mine.splashR * mine.splashR;
+    for (let k = enemies.length - 1; k >= 0; k--) {
+      const sdx = enemies[k].x - mine.x, sdy = enemies[k].y - mine.y;
+      if (sdx*sdx + sdy*sdy < splashR2) {
+        enemies[k].slowTimer = mine.slowDur;
+        damageEnemy(k, mine.dmg);
+      }
+    }
+    spawnParticles(mine.x, mine.y, '#ff69b4', 10);
+    playSound(sfxThermos);
+    swapRemove(mines, m);
   }
 
   // ── Move projectiles ──
@@ -1505,6 +1576,26 @@ function drawLiniaal() {
   ctx.restore();
 }
 
+function drawMines() {
+  for (const mine of mines) {
+    const fade = Math.max(0.15, mine.lifetime / mine.maxLifetime);
+    ctx.globalAlpha = fade;
+    // Blob
+    ctx.fillStyle = '#e8a0d8';
+    ctx.beginPath(); ctx.ellipse(mine.x, mine.y, mine.r * 1.5, mine.r * 0.75, 0, 0, Math.PI * 2); ctx.fill();
+    // Donker midden
+    ctx.fillStyle = '#9b3680';
+    ctx.beginPath(); ctx.ellipse(mine.x, mine.y, mine.r * 0.65, mine.r * 0.33, 0, 0, Math.PI * 2); ctx.fill();
+    // Pulserende rand
+    const pulse = 0.5 + 0.5 * Math.sin(mine.lifetime * 6);
+    ctx.globalAlpha = fade * pulse * 0.8;
+    ctx.strokeStyle = '#ff80d0';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.ellipse(mine.x, mine.y, mine.r * 1.5, mine.r * 0.75, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.globalAlpha = 1;
+  }
+}
+
 function drawProjectiles() {
   for (const p of projectiles) {
     if (p.type === 'boek') {
@@ -1855,6 +1946,7 @@ function draw() {
   }
   ctx.globalAlpha = 1;
 
+  drawMines();
   for (const e of enemies) drawGoose(e);
 
   drawProjectiles();
@@ -1954,11 +2046,11 @@ function loop(ts) {
 }
 
 // ─── UI Flow ─────────────────────────────────────────────────────────────────
-function startGame() {
-  resetGame();
+function launchGame() {
   startMusic();
   overlay.classList.add('hidden');
   levelPanel.classList.add('hidden');
+  countdownPanel.classList.add('hidden');
   state = 'playing';
   wavePhase = 'fighting';
   spawnEnemiesForWave(wave);
@@ -1966,6 +2058,31 @@ function startGame() {
   lastTime = performance.now();
   pauseBtn.classList.remove('hidden');
   requestAnimationFrame(loop);
+}
+
+function startGame() {
+  resetGame();
+  launchGame();
+}
+
+function showCountdown() {
+  const weaponId = Object.keys(player.weapons)[0];
+  const def = WEAPON_DEFS[weaponId];
+  countdownWeaponName.textContent  = def.label;
+  countdownWeaponDesc.textContent  = weaponMechanic(weaponId);
+  countdownWeaponStats.textContent = upgradeDesc(weaponId, 1);
+  countdownPanel.classList.remove('hidden');
+  let count = 3;
+  countdownNumber.textContent = count;
+  const tick = setInterval(() => {
+    count--;
+    if (count > 0) {
+      countdownNumber.textContent = count;
+    } else {
+      clearInterval(tick);
+      launchGame();
+    }
+  }, 1000);
 }
 
 function endGame() {
@@ -2078,7 +2195,13 @@ overlayBtn.addEventListener('click', () => {
     if (el.requestFullscreen)              el.requestFullscreen();
     else if (el.webkitRequestFullscreen)   el.webkitRequestFullscreen();
   } catch (_) {}
-  startGame();
+  if (state === 'idle') {
+    resetGame();
+    overlay.classList.add('hidden');
+    showCountdown();
+  } else {
+    startGame();
+  }
 });
 overlayTitle.textContent = 'Avans Gans Attack';
 overlayMsg.innerHTML     = 'Overleef golven van boze ganzen!<br>Beweeg met WASD of de pijltjestoetsen.';

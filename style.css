@@ -244,6 +244,73 @@ button:hover { background: #a0001f; }
 
 #overlay-mainmenu-btn.hidden { display: none; }
 
+/* ── Aftelscherm ────────────────────────────────────────────────────────── */
+#countdown-panel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.75);
+  border-radius: 0 0 6px 6px;
+  z-index: 30;
+}
+
+#countdown-panel.hidden { display: none; }
+
+#countdown-box {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  width: 90%;
+  padding: 36px 28px 32px;
+  background: #1c1c28;
+  border: 2px solid #C6002A;
+  border-radius: 12px;
+}
+
+.countdown-logo {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  height: 44px;
+  object-fit: contain;
+}
+
+.countdown-label {
+  font-size: 0.9rem;
+  color: #aaa;
+  margin-bottom: 8px;
+}
+
+#countdown-weapon-name {
+  font-size: 2rem;
+  color: #C6002A;
+  margin-bottom: 10px;
+}
+
+#countdown-weapon-desc {
+  font-size: 0.9rem;
+  color: #e8e8e8;
+  margin-bottom: 10px;
+}
+
+#countdown-weapon-stats {
+  font-size: 0.78rem;
+  color: #888;
+  margin-bottom: 28px;
+}
+
+#countdown-number {
+  font-size: 5.5rem;
+  font-weight: bold;
+  color: #fff;
+  line-height: 1;
+  text-shadow: 0 0 24px rgba(198, 0, 42, 0.7);
+}
+
 /* ── Level-up upgrade panel ─────────────────────────────────────────────── */
 #level-up-panel {
   position: absolute;
@@ -359,6 +426,7 @@ button:hover { background: #a0001f; }
 
   #overlay:not(.hidden) ~ #dpad,
   #pause-panel:not(.hidden) ~ #dpad,
+  #countdown-panel:not(.hidden) ~ #dpad,
   #level-up-panel:not(.hidden) ~ #dpad {
     display: none;
   }
