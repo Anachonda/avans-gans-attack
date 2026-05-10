@@ -388,6 +388,12 @@ const POND_OBSTACLES = [
   { x: 1008, y: 1024, w: 424,  h: 176  },
 ];
 
+// 8 richtingen voor pushout (preallocatie — geen new Array per frame)
+const _PUSH_DIRS = [
+  [1,0],[0.707,0.707],[0,1],[-0.707,0.707],
+  [-1,0],[-0.707,-0.707],[0,-1],[0.707,-0.707],
+];
+
 // Ganzen spawnen altijd vanuit de vijver of de planten rechts ernaast (linksonder)
 const ENEMY_SPAWN_POINTS = [
   // Vijver (x=0–146, y=983–1200)
@@ -941,8 +947,9 @@ function update(dt) {
     if (e.slowTimer > 0) e.slowTimer -= dt;
     if (e.hitTimer > 0) e.hitTimer -= dt;
     if (e.kbx !== 0 || e.kby !== 0) {
-      e.x += e.kbx * dt;
-      e.y += e.kby * dt;
+      const kx = e.x + e.kbx * dt, ky = e.y + e.kby * dt;
+      if (!collidesWithObstacles(kx, e.y, e.r)) e.x = kx; else e.kbx = 0;
+      if (!collidesWithObstacles(e.x, ky, e.r)) e.y = ky; else e.kby = 0;
       e.kbx *= Math.max(0, 1 - dt * 12);
       e.kby *= Math.max(0, 1 - dt * 12);
       if (e.kbx*e.kbx + e.kby*e.kby < 1) { e.kbx = 0; e.kby = 0; }
@@ -1026,6 +1033,18 @@ function update(dt) {
           if (!collidesWithObstacles(px, e.y, e.r)) { e.x = px; break; }
           if (!collidesWithObstacles(e.x, py, e.r)) { e.y = py; break; }
         }
+      }
+    }
+
+    // Pushout: zit de gans toch in een obstakel (bijv. door knockback of separatiekracht), duw hem eruit
+    if (!ENEMY_TYPES[e.type]?.ignoresObstacles && collidesWithObstacles(e.x, e.y, e.r)) {
+      for (let pd = 2; pd <= e.r * 4 + 4; pd += 2) {
+        let out = false;
+        for (let pi = 0; pi < _PUSH_DIRS.length; pi++) {
+          const tx = e.x + _PUSH_DIRS[pi][0] * pd, ty = e.y + _PUSH_DIRS[pi][1] * pd;
+          if (!collidesWithObstacles(tx, ty, e.r)) { e.x = tx; e.y = ty; out = true; break; }
+        }
+        if (out) break;
       }
     }
 
@@ -1277,6 +1296,17 @@ function update(dt) {
       const ny = Math.max(br, Math.min(CONFIG.mapHeight - br, d.y + d.vy));
       if (!collidesWithObstacles(nx, d.y, br)) d.x = nx; else d.vx *= -0.3;
       if (!collidesWithObstacles(d.x, ny, br)) d.y = ny; else d.vy *= -0.3;
+      // Pushout: bananenschil die toch in een obstakel zit (bijv. door gans-push)
+      if (collidesWithObstacles(d.x, d.y, br)) {
+        for (let pd = 2; pd <= 60; pd += 2) {
+          let out = false;
+          for (let pi = 0; pi < _PUSH_DIRS.length; pi++) {
+            const tx = d.x + _PUSH_DIRS[pi][0] * pd, ty = d.y + _PUSH_DIRS[pi][1] * pd;
+            if (!collidesWithObstacles(tx, ty, br)) { d.x = tx; d.y = ty; out = true; break; }
+          }
+          if (out) break;
+        }
+      }
     } else {
       d.x += d.vx; d.y += d.vy;
       d.x = Math.max(20, Math.min(CONFIG.mapWidth  - 20, d.x));
