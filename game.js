@@ -557,7 +557,7 @@ function spawnOneEnemy(waveNum, type) {
     hp: baseHp, maxHp: baseHp,
     speed: (CONFIG.enemyBaseSpeed + Math.sqrt(tier) * 25 + rand(0, 20)) * tDef.speedMult,
     tier, type,
-    slowTimer: 0, hitTimer: 0, kbx: 0, kby: 0,
+    slowTimer: 0, kauwgomSlowTimer: 0, hitTimer: 0, kbx: 0, kby: 0,
     ...extra,
   });
 }
@@ -909,7 +909,7 @@ function update(dt) {
     for (let k = enemies.length - 1; k >= 0; k--) {
       const sdx = enemies[k].x - mine.x, sdy = enemies[k].y - mine.y;
       if (sdx*sdx + sdy*sdy < splashR2) {
-        enemies[k].slowTimer = mine.slowDur;
+        enemies[k].kauwgomSlowTimer = Math.max(enemies[k].kauwgomSlowTimer, mine.slowDur);
         damageEnemy(k, mine.dmg);
       }
     }
@@ -945,6 +945,7 @@ function update(dt) {
     const e = enemies[i];
     if (!e) continue;  // guard: splice in geneste loop kan index verschuiven
     if (e.slowTimer > 0) e.slowTimer -= dt;
+    if (e.kauwgomSlowTimer > 0) e.kauwgomSlowTimer -= dt;
     if (e.hitTimer > 0) e.hitTimer -= dt;
     if (e.kbx !== 0 || e.kby !== 0) {
       const kx = e.x + e.kbx * dt, ky = e.y + e.kby * dt;
@@ -978,7 +979,7 @@ function update(dt) {
     }
 
     const graceMult = graceTimer > 0 ? 0.25 + 0.75 * (1 - graceTimer) : 1;
-    const spd = (e.slowTimer > 0 ? e.speed * CONFIG.enemySlowFactor : e.speed) * graceMult;
+    const spd = e.speed * (e.slowTimer > 0 ? CONFIG.enemySlowFactor : 1) * (e.kauwgomSlowTimer > 0 ? CONFIG.enemySlowFactor : 1) * graceMult;
     // Bosses mikken op een punt iets vóór de speler (intercept), overige vijanden direct op de speler
     let targetX = player.x, targetY = player.y;
     if (e.type === 'bossGoose' && (player.vx !== 0 || player.vy !== 0)) {
@@ -1150,7 +1151,7 @@ function update(dt) {
       }
 
       if (p.type === 'thermos') {
-        e.slowTimer = p.slowDur;
+        e.slowTimer = Math.max(e.slowTimer, p.slowDur);
         if (p.splash) {
           // Splash: damage + slow overige vijanden (sla i over – die krijgt aparte full damage)
           const splashR2 = p.splashR * p.splashR;
@@ -1158,7 +1159,7 @@ function update(dt) {
             if (k === i) continue;
             const tkdx = enemies[k].x-p.x, tkdy = enemies[k].y-p.y;
             if (tkdx*tkdx+tkdy*tkdy < splashR2) {
-              enemies[k].slowTimer = p.slowDur;
+              enemies[k].slowTimer = Math.max(enemies[k].slowTimer, p.slowDur);
               damageEnemy(k, Math.ceil(p.dmg / 2));
             }
           }
@@ -1409,7 +1410,7 @@ function buildGooseSprite(r, color) {
 }
 
 function drawGoose(e) {
-  const { x, y, r, hp, maxHp, tier, slowTimer, hitTimer, type } = e;
+  const { x, y, r, hp, maxHp, tier, slowTimer, kauwgomSlowTimer, hitTimer, type } = e;
   const angle = Math.atan2(player.y - e.y, player.x - e.x);
   const tDef  = ENEMY_TYPES[type] || ENEMY_TYPES.normal;
   const baseColor = tDef.color || (tier < 2 ? '#f5f5f5' : tier < 4 ? '#f0e8d0' : '#e8d0b0');
@@ -1428,6 +1429,12 @@ function drawGoose(e) {
   if (slowTimer > 0) {
     ctx.globalAlpha = 0.35;
     ctx.fillStyle = '#3498db';
+    ctx.beginPath(); ctx.ellipse(0, 0, r*1.2, r*0.9, 0, 0, Math.PI*2); ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+  if (kauwgomSlowTimer > 0) {
+    ctx.globalAlpha = 0.3;
+    ctx.fillStyle = '#e040fb';
     ctx.beginPath(); ctx.ellipse(0, 0, r*1.2, r*0.9, 0, 0, Math.PI*2); ctx.fill();
     ctx.globalAlpha = 1;
   }
