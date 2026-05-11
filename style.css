@@ -171,11 +171,154 @@ button:hover { background: #a0001f; }
 #pause-btn.hidden { display: none; }
 
 #highscore-box {
-  margin: 0 0 18px;
+  margin: 0 0 8px;
   font-size: 0.85rem;
   color: #ffffff;
   min-height: 1.2em;
 }
+
+#feathers-display {
+  font-size: 0.85rem;
+  color: #f0c040;
+  margin-bottom: 14px;
+}
+
+#collectie-btn {
+  display: block;
+  margin: 8px auto 0;
+  padding: 7px 20px;
+  font-size: 0.85rem;
+  background: transparent;
+  color: #ccc;
+  border: 1px solid #C6002A;
+}
+
+#collectie-btn:hover { background: rgba(198,0,42,0.15); color: #fff; }
+
+/* ── Collectie-panel ────────────────────────────────────────────────────── */
+#collectie-panel {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(0, 0, 0, 0.75);
+  border-radius: 0 0 6px 6px;
+  z-index: 30;
+}
+
+#collectie-panel.hidden { display: none; }
+
+#collectie-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  width: 92%;
+  max-height: 88%;
+  padding: 24px 20px 20px;
+  background: #1c1c28;
+  border: 2px solid #C6002A;
+  border-radius: 12px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  gap: 8px;
+}
+
+#collectie-box h2 {
+  font-size: 1.6rem;
+  color: #C6002A;
+  margin-bottom: 4px;
+}
+
+#collectie-box h3 {
+  font-size: 1rem;
+  color: #aaa;
+  margin: 10px 0 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+#collectie-feathers {
+  font-size: 1rem;
+  color: #f0c040;
+  margin: 0;
+}
+
+#shop-grid,
+#milestones-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+}
+
+.shop-tile,
+.milestone-tile {
+  width: 150px;
+  padding: 14px 12px;
+  background: #1e1e2e;
+  border: 1px solid #555;
+  border-radius: 10px;
+  text-align: center;
+  transition: border-color 0.15s, transform 0.1s;
+}
+
+.shop-tile:not(.bought):not(.locked) {
+  cursor: pointer;
+}
+
+.shop-tile:not(.bought):not(.locked):hover {
+  border-color: #C6002A;
+  transform: translateY(-2px);
+}
+
+.shop-tile.bought  { border-color: #2ecc71; }
+.shop-tile.locked,
+.milestone-tile.locked { opacity: 0.45; filter: grayscale(0.6); }
+
+.shop-tile h3,
+.milestone-tile h3 { font-size: 0.9rem; color: #C6002A; margin-bottom: 6px; }
+
+.shop-tile p,
+.milestone-tile p  { font-size: 0.75rem; color: #aaa; margin-bottom: 6px; }
+
+.tile-cost  { font-size: 0.8rem; color: #f0c040; font-weight: bold; }
+.shop-tile.bought .tile-cost { color: #2ecc71; }
+
+.tile-req   { font-size: 0.72rem; color: #888; font-style: italic; }
+
+#weapon-pref-section { width: 100%; }
+
+#weapon-pref-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.weapon-pref-btn {
+  padding: 6px 14px;
+  font-size: 0.8rem;
+  background: transparent;
+  color: #ccc;
+  border: 1px solid #555;
+}
+
+.weapon-pref-btn:hover { background: rgba(198,0,42,0.15); color: #fff; border-color: #C6002A; }
+.weapon-pref-btn.selected { background: #C6002A; color: #fff; border-color: #C6002A; }
+
+#collectie-close-btn {
+  margin-top: 12px;
+  padding: 10px 28px;
+  background: transparent;
+  color: #ccc;
+  border: 1px solid #C6002A;
+  font-size: 0.9rem;
+}
+
+#collectie-close-btn:hover { background: rgba(198,0,42,0.15); color: #fff; }
 
 /* ── PWA install banner (alleen iOS Safari, getoond via JS) ─────────────── */
 /* Staat buiten #overlay-box zodat het altijd zichtbaar is, ongeacht scroll */
@@ -427,7 +570,8 @@ button:hover { background: #a0001f; }
   #overlay:not(.hidden) ~ #dpad,
   #pause-panel:not(.hidden) ~ #dpad,
   #countdown-panel:not(.hidden) ~ #dpad,
-  #level-up-panel:not(.hidden) ~ #dpad {
+  #level-up-panel:not(.hidden) ~ #dpad,
+  #collectie-panel:not(.hidden) ~ #dpad {
     display: none;
   }
 }
@@ -473,6 +617,10 @@ button:hover { background: #a0001f; }
   }
 
   .upgrade-card { width: 220px; }
+
+  .shop-tile, .milestone-tile { width: 130px; }
+  #weapon-pref-grid { gap: 4px; }
+  .weapon-pref-btn { padding: 5px 10px; font-size: 0.75rem; }
 }
 
 /* ── Landscape mobiel: d-pad in linker pillarbox ────────────────────────── */

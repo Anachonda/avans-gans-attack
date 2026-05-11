@@ -70,6 +70,62 @@ function saveHighscore(w, t) {
   if (w > hs.wave) localStorage.setItem('hs_wave', w);
   if (t > hs.time) localStorage.setItem('hs_time', t);
 }
+// ─── Meta-progressie ─────────────────────────────────────────────────────────
+const SHOP_DEFS = [
+  { id: 'rugzak',       label: 'Stevige rugzak',  cost: 30, desc: 'Start elke run met +10 max HP.' },
+  { id: 'vroege_vogel', label: 'Vroege vogel',     cost: 50, desc: 'Start elke run met een extra willekeurig wapen.' },
+  { id: 'ganzenkenner', label: 'Ganzenkenner',     cost: 80, desc: 'Kies elke wave uit 4 upgrade-kaarten i.p.v. 3.' },
+  { id: 'thermoskan',   label: 'Thermoskan',       cost: 60, desc: 'Thermosbeker altijd aangeboden bij de eerste upgrade-keuze.' },
+];
+
+const MILESTONE_DEFS = [
+  { id: 'ganzenjager', label: 'Ganzenjager',   req: '100 ganzen totaal verslagen', reward: '+1 extra veertje per kill' },
+  { id: 'veteraan',    label: 'Veteraan',       req: 'Overleef wave 10',            reward: 'Kies je startwapen' },
+  { id: 'held',        label: 'Held van Avans', req: 'Overleef wave 20',            reward: '+10 extra veertjes per wave' },
+];
+
+const meta = {
+  feathers: 0, kills_total: 0, wave_max: 0,
+  upgrades:  { rugzak: false, vroege_vogel: false, ganzenkenner: false, thermoskan: false },
+  milestones: { ganzenjager: false, veteraan: false, held: false },
+  weapon_pref: 'random',
+  run_kills: 0, run_feathers: 0,
+};
+
+function loadMeta() {
+  try {
+    const saved = JSON.parse(localStorage.getItem('meta') || 'null');
+    if (!saved) return;
+    meta.feathers    = saved.feathers    || 0;
+    meta.kills_total = saved.kills_total || 0;
+    meta.wave_max    = saved.wave_max    || 0;
+    meta.weapon_pref = saved.weapon_pref || 'random';
+    if (saved.upgrades)   Object.assign(meta.upgrades,   saved.upgrades);
+    if (saved.milestones) Object.assign(meta.milestones, saved.milestones);
+  } catch (_) {}
+}
+
+function saveMeta() {
+  localStorage.setItem('meta', JSON.stringify({
+    feathers: meta.feathers, kills_total: meta.kills_total, wave_max: meta.wave_max,
+    weapon_pref: meta.weapon_pref, upgrades: meta.upgrades, milestones: meta.milestones,
+  }));
+}
+
+function checkMilestones() {
+  if (!meta.milestones.ganzenjager && meta.kills_total >= 100) meta.milestones.ganzenjager = true;
+  if (!meta.milestones.veteraan    && meta.wave_max    >= 10)  meta.milestones.veteraan    = true;
+  if (!meta.milestones.held        && meta.wave_max    >= 20)  meta.milestones.held        = true;
+}
+
+function updateFeatherDisplay() {
+  document.getElementById('feathers-count').textContent = meta.feathers;
+}
+
+function updateCollectieFeathers() {
+  document.getElementById('collectie-feathers-count').textContent = meta.feathers;
+}
+
 function updateHighscoreBox() {
   const hs = loadHighscore();
   const box = document.getElementById('highscore-box');
@@ -219,6 +275,13 @@ const countdownNumber     = document.getElementById('countdown-number');
 const countdownWeaponName  = document.getElementById('countdown-weapon-name');
 const countdownWeaponDesc  = document.getElementById('countdown-weapon-desc');
 const countdownWeaponStats = document.getElementById('countdown-weapon-stats');
+const collectiePanel       = document.getElementById('collectie-panel');
+const collectieCloseBtn    = document.getElementById('collectie-close-btn');
+const collectieBtn         = document.getElementById('collectie-btn');
+const shopGrid             = document.getElementById('shop-grid');
+const milestonesGrid       = document.getElementById('milestones-grid');
+const weaponPrefSection    = document.getElementById('weapon-pref-section');
+const weaponPrefGrid       = document.getElementById('weapon-pref-grid');
 
 // ─── Enemy types ─────────────────────────────────────────────────────────────
 const ENEMY_TYPES = {
@@ -664,6 +727,7 @@ function resetGame() {
     weapons: { [(k => k[Math.floor(Math.random() * k.length)])(Object.keys(WEAPON_DEFS).filter(k => !WEAPON_DEFS[k].disabled))]: 1 },
     cooldowns: {},
     swing: null, spinSwing: null, liniaalFlash: null,
+    extraCards: 0, thermoGuaranteed: false,
   });
   player._parapluHits.clear();
   player._passerHits.clear();
@@ -675,6 +739,104 @@ function resetGame() {
   enemies = []; projectiles = []; mines = []; particles = []; pickups = []; bossProjectileCount = 0;
   wave = 1; wavePhase = 'fighting'; waveMessage = null; betweenWavesTimer = 0; elapsed = 0; graceTimer = 0; bananaSlipCount = 0;
   debris = DEBRIS_DEFS.map(d => ({ ...d, vx: 0, vy: 0, angularVel: 0, playerPushTimer: 0 }));
+  meta.run_kills = 0; meta.run_feathers = 0;
+  applyPermanentUpgrades();
+}
+
+// ─── Permanente upgrades toepassen ───────────────────────────────────────────
+function applyPermanentUpgrades() {
+  if (meta.upgrades.rugzak) { player.maxHp += 10; player.hp += 10; }
+  if (meta.upgrades.ganzenkenner)  player.extraCards      = 1;
+  if (meta.upgrades.thermoskan)    player.thermoGuaranteed = true;
+
+  if (meta.milestones.veteraan && meta.weapon_pref !== 'random') {
+    const pref = meta.weapon_pref;
+    if (WEAPON_DEFS[pref] && !WEAPON_DEFS[pref].disabled) {
+      player.weapons   = { [pref]: 1 };
+      player.cooldowns = {};
+      const sdef = WEAPON_DEFS[pref];
+      player.cooldowns[pref] = rand(0, sdef.interval ? sdef.interval[0] : 1 / sdef.rate[0]);
+    }
+  }
+
+  if (meta.upgrades.vroege_vogel) {
+    const existing  = Object.keys(player.weapons)[0];
+    const available = Object.keys(WEAPON_DEFS).filter(k => !WEAPON_DEFS[k].disabled && k !== existing);
+    if (available.length > 0) {
+      const extra = available[Math.floor(Math.random() * available.length)];
+      player.weapons[extra] = 1;
+      const edef = WEAPON_DEFS[extra];
+      player.cooldowns[extra] = rand(0, edef.interval ? edef.interval[0] : 1 / edef.rate[0]);
+    }
+  }
+}
+
+// ─── Collectie-panel ──────────────────────────────────────────────────────────
+function renderCollectie() {
+  updateCollectieFeathers();
+
+  shopGrid.innerHTML = '';
+  for (const def of SHOP_DEFS) {
+    const bought    = meta.upgrades[def.id];
+    const canAfford = meta.feathers >= def.cost;
+    const tile = document.createElement('div');
+    tile.className = 'shop-tile' + (bought ? ' bought' : (!canAfford ? ' locked' : ''));
+    tile.innerHTML = `<h3>${def.label}</h3><p>${def.desc}</p><span class="tile-cost">${bought ? '✓ Actief' : `🪶 ${def.cost}`}</span>`;
+    if (!bought && canAfford) tile.addEventListener('click', () => buyUpgrade(def.id));
+    shopGrid.appendChild(tile);
+  }
+
+  milestonesGrid.innerHTML = '';
+  for (const def of MILESTONE_DEFS) {
+    const unlocked = meta.milestones[def.id];
+    const tile = document.createElement('div');
+    tile.className = 'milestone-tile' + (unlocked ? '' : ' locked');
+    tile.innerHTML = `<h3>${def.label}</h3><p class="tile-req">${def.req}</p><p>${def.reward}</p>`;
+    milestonesGrid.appendChild(tile);
+  }
+
+  if (meta.milestones.veteraan) {
+    weaponPrefSection.classList.remove('hidden');
+    weaponPrefGrid.innerHTML = '';
+    const addPrefBtn = (id, label) => {
+      const btn = document.createElement('button');
+      btn.className = 'weapon-pref-btn' + (meta.weapon_pref === id ? ' selected' : '');
+      btn.textContent = label;
+      btn.addEventListener('click', () => setWeaponPref(id));
+      weaponPrefGrid.appendChild(btn);
+    };
+    addPrefBtn('random', 'Willekeurig');
+    for (const [id, def] of Object.entries(WEAPON_DEFS)) {
+      if (!def.disabled) addPrefBtn(id, def.label);
+    }
+  } else {
+    weaponPrefSection.classList.add('hidden');
+  }
+}
+
+function buyUpgrade(id) {
+  const def = SHOP_DEFS.find(d => d.id === id);
+  if (!def || meta.upgrades[id] || meta.feathers < def.cost) return;
+  meta.feathers -= def.cost;
+  meta.upgrades[id] = true;
+  saveMeta();
+  updateFeatherDisplay();
+  renderCollectie();
+}
+
+function setWeaponPref(id) {
+  meta.weapon_pref = id;
+  saveMeta();
+  renderCollectie();
+}
+
+function openCollectie() {
+  renderCollectie();
+  collectiePanel.classList.remove('hidden');
+}
+
+function closeCollectie() {
+  collectiePanel.classList.add('hidden');
 }
 
 // ─── Kill helper ──────────────────────────────────────────────────────────────
@@ -685,12 +847,18 @@ function killEnemy(i) {
   deathEffects.push({ x, y, r: r * 0.5, maxR: r * 2.5, life: 0.35, maxLife: 0.35 });
   if (type === 'bossGoose')
     pickups.push({ x, y, type: 'heart', healAmt: Math.round(player.maxHp * 0.1) });
+
+  const kf = (meta.milestones.ganzenjager ? 2 : 1) + (type === 'bossGoose' ? 2 : 0);
+  meta.feathers += kf; meta.run_feathers += kf; meta.run_kills++;
+
   swapRemove(enemies, i);
   if (enemies.length === 0 && wavePhase === 'fighting') {
     // Ruim overblijvende boss-projectielen op zodra de wave gewonnen is
     for (let k = projectiles.length - 1; k >= 0; k--) {
       if (projectiles[k].fromBoss) { swapRemove(projectiles, k); bossProjectileCount--; }
     }
+    const wf = meta.milestones.held ? 15 : 5;
+    meta.feathers += wf; meta.run_feathers += wf;
     wavePhase = 'betweenWaves';
     betweenWavesTimer = CONFIG.waveBreakDuration;
     waveMessage = { text: `Ronde ${wave} voltooid!`, timer: CONFIG.waveBreakDuration };
@@ -2127,8 +2295,15 @@ function endGame() {
   pauseBtn.classList.add('hidden');
   overlayMainMenuBtn.classList.remove('hidden');
   saveHighscore(wave, Math.floor(elapsed));
+
+  meta.kills_total += meta.run_kills;
+  if (wave > meta.wave_max) meta.wave_max = wave;
+  checkMilestones();
+  saveMeta();
+  updateFeatherDisplay();
+
   overlayTitle.textContent = 'Game Over';
-  overlayMsg.textContent   = `Je overleefde ${Math.floor(elapsed)}s en haalde wave ${wave}!`;
+  overlayMsg.textContent   = `Je overleefde ${Math.floor(elapsed)}s en haalde wave ${wave}! +${meta.run_feathers} 🪶 (totaal: ${meta.feathers})`;
   overlayBtn.textContent   = 'Opnieuw spelen';
   updateHighscoreBox();
   overlay.classList.remove('hidden');
@@ -2141,8 +2316,15 @@ function showLevelUp() {
   pauseBtn.classList.add('hidden');
   waveCompleteTitle.textContent = `Wave ${wave} voltooid!`;
   upgradeOpts.innerHTML = '';
-  const pool    = buildUpgradePool();
-  const choices = pool.sort(() => Math.random() - 0.5).slice(0, 3);
+  let pool = buildUpgradePool();
+  let guaranteed = null;
+  if (player.thermoGuaranteed && wave === 1) {
+    const ti = pool.findIndex(u => u.weaponId === 'thermos');
+    if (ti >= 0) { guaranteed = pool.splice(ti, 1)[0]; }
+  }
+  pool.sort(() => Math.random() - 0.5);
+  if (guaranteed) pool.unshift(guaranteed);
+  const choices = pool.slice(0, 3 + (player.extraCards || 0));
   for (const u of choices) {
     const card = document.createElement('div');
     card.className = 'upgrade-card';
@@ -2223,6 +2405,8 @@ pauseBtn.addEventListener('click',           () => pauseGame());
 resumeBtn.addEventListener('click',          () => resumeGame());
 mainMenuBtn.addEventListener('click',        () => goToMainMenu());
 overlayMainMenuBtn.addEventListener('click', () => goToMainMenu());
+collectieBtn.addEventListener('click',       () => openCollectie());
+collectieCloseBtn.addEventListener('click',  () => closeCollectie());
 
 // ─── Startscherm ─────────────────────────────────────────────────────────────
 overlayBtn.addEventListener('click', () => {
@@ -2240,6 +2424,8 @@ overlayBtn.addEventListener('click', () => {
     startGame();
   }
 });
+loadMeta();
+updateFeatherDisplay();
 overlayTitle.textContent = 'Avans Gans Attack';
 overlayMsg.innerHTML     = 'Overleef golven van boze ganzen!<br>Beweeg met WASD of de pijltjestoetsen.';
 overlayBtn.textContent   = 'Start';
