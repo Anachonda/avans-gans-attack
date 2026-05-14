@@ -127,10 +127,11 @@ Bananenschillen op de grond laten de speler tijdelijk uitglijden (fallTimer).
 
 | Scherm | Getoond bij | Knoppen |
 |---|---|---|
-| Startscherm | App-start of na hoofdmenu | Start, Geluid aan/uit |
+| Startscherm | App-start of na hoofdmenu | Start, Geluid aan/uit, Collectie |
 | Game-over | Speler dood | Opnieuw spelen, Hoofdmenu |
-| Level-up | Wave voltooid | 3 upgrade-kaarten |
+| Level-up | Wave voltooid | 3–4 upgrade-kaarten (+ eventueel reroll-knop) |
 | Pauze | Pauzeknop / Escape | Doorgaan, Hoofdmenu |
+| Collectie | Collectie-knop op startscherm | Koop upgrades, bekijk mijlpalen, Sluiten |
 
 **Highscore-box** op startscherm: beste wave + beste tijd (opgeslagen in `localStorage`).
 
@@ -147,3 +148,44 @@ Bananenschillen op de grond laten de speler tijdelijk uitglijden (fallTimer).
   - **Doorgaan** — hervat spel, muziek terug naar normaal volume
   - **Hoofdmenu** — stopt muziek, terug naar startscherm
 - Pauzeknop verbergt automatisch bij level-up, game-over en hoofdmenu
+
+---
+
+## Meta-progressie
+
+Veertjes (`🪶`) zijn de valuta die tussen runs bewaard blijven (in `localStorage`).
+
+**Verdienen:**
+- 1 veertje per kill (2 met milestone *Ganzenjager*)
+- +2 extra per boss-kill
+- +1 elke vijfde kill (met upgrade *Verenjas*)
+- 5 veertjes per wave-clear
+- +1 per wave-clear (met milestone *Doorzetter*)
+- +10 per wave-clear (met milestone *Held van Avans*, cumulatief met Doorzetter)
+
+**Collectie-winkel — max 1 aankoop per run:**
+
+| Tier | ID | Effect | Prijs |
+|---|---|---|---|
+| 1 | Stevige rugzak | +10 max HP | 80 |
+| 1 | Sportschoenen | +5% snelheid | 100 |
+| 2 | Thermoskan | Thermos gegarandeerd wave 1 | 200 |
+| 2 | Veerkracht | Iframes 0.6 s → 0.85 s | 220 |
+| 2 | Verenjas | +1 veertje per 5e kill | 250 |
+| 3 | Vroege vogel | Extra random wapen bij start | 450 |
+| 3 | Ganzenkenner | 4 upgrade-kaarten i.p.v. 3 | 500 |
+| 3 | Herkansing | 1 reroll per run bij upgrades | 480 |
+
+Tier 2 beschikbaar na ≥1 Tier-1-aankoop. Tier 3 na ≥2 Tier-2-aankopen.
+
+**Startwapen kiezen:** ontgrendelt na alle drie Tier-3-items gekocht.
+
+**Mijlpalen (automatisch, geen koop):**
+
+| ID | Voorwaarde | Beloning |
+|---|---|---|
+| Ganzenjager | 100 kills totaal | +1 feather/kill |
+| Veteraan | Wave 10 overleefd | Ereplaats |
+| Doorzetter | 500 kills totaal | +1 feather/wave |
+| Held van Avans | Wave 20 overleefd | +10 feathers/wave |
+| Schoolkampioen | Wave 30 overleefd | Eer en roem |

@@ -2,6 +2,16 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Sessie-start — verplicht lezen
+
+Lees bij elke nieuwe sessie altijd eerst deze bestanden, in deze volgorde:
+
+1. `ARCHITECTURE.md` — structuur, systemen, bestandsverantwoordelijkheden
+2. `AI_RULES.md` — werkwijze, beperkingen, do's en don'ts
+3. `FEATURES.md` — overzicht van alle huidige gameplay-mechanics
+
+Stop met lezen zodra je genoeg context hebt voor de taak. Lees `game.js` nooit in zijn geheel.
+
 ## Running the Game
 
 No build step required. Open `index.html` directly in any modern browser. There are no dependencies, no package manager, and no compilation needed.

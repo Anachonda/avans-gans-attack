@@ -215,15 +215,23 @@ button:hover { background: #a0001f; }
   align-items: center;
   text-align: center;
   width: 92%;
-  max-height: 88%;
+  max-width: 900px;
+  max-height: 92%;
   padding: 24px 20px 20px;
   background: #1c1c28;
   border: 2px solid #C6002A;
   border-radius: 12px;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  scrollbar-color: #C6002A #1c1c28;
+  scrollbar-width: thin;
   gap: 8px;
 }
+
+#collectie-box::-webkit-scrollbar        { width: 6px; }
+#collectie-box::-webkit-scrollbar-track  { background: #1c1c28; border-radius: 3px; }
+#collectie-box::-webkit-scrollbar-thumb  { background: #C6002A; border-radius: 3px; }
+#collectie-box::-webkit-scrollbar-thumb:hover { background: #e0002f; }
 
 #collectie-box h2 {
   font-size: 1.6rem;
@@ -245,18 +253,46 @@ button:hover { background: #a0001f; }
   margin: 0;
 }
 
-#shop-grid,
-#milestones-grid {
+#shop-grid {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   gap: 10px;
+  width: 100%;
 }
 
-.shop-tile,
+#milestones-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 10px;
+  width: 100%;
+}
+
+.tier-header {
+  width: 100%;
+  font-size: 0.7rem;
+  color: #666;
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  padding: 4px 2px 1px;
+  border-top: 1px solid #2a2a3a;
+}
+
+.tier-header:first-child { border-top: none; padding-top: 0; }
+
+.shop-tile {
+  width: 170px;
+  padding: 10px 12px;
+  background: #1e1e2e;
+  border: 1px solid #555;
+  border-radius: 10px;
+  text-align: center;
+  transition: border-color 0.15s, transform 0.1s;
+}
+
 .milestone-tile {
-  width: 150px;
-  padding: 14px 12px;
+  padding: 10px 8px;
   background: #1e1e2e;
   border: 1px solid #555;
   border-radius: 10px;
@@ -498,6 +534,26 @@ button:hover { background: #a0001f; }
 .upgrade-card h3 { font-size: 1rem; color: #C6002A; margin-bottom: 8px; }
 .upgrade-card p  { font-size: 0.8rem; color: #aaa; }
 
+.reroll-btn {
+  margin-top: 12px;
+  padding: 8px 20px;
+  font-family: inherit;
+  font-size: 0.85rem;
+  background: transparent;
+  color: #aaa;
+  border: 1px solid #555;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.reroll-btn:hover { border-color: #C6002A; color: #fff; }
+
+#purchase-notice {
+  font-size: 0.8rem;
+  color: #f0a040;
+  min-height: 1.2em;
+  margin-bottom: 4px;
+}
+
 /* ── D-pad: verborgen op desktop, zichtbaar op mobiel via media query ────── */
 #dpad {
   display: none;
@@ -618,7 +674,8 @@ button:hover { background: #a0001f; }
 
   .upgrade-card { width: 220px; }
 
-  .shop-tile, .milestone-tile { width: 130px; }
+  .shop-tile { width: 130px; }
+  #milestones-grid { grid-template-columns: repeat(3, 1fr); }
   #weapon-pref-grid { gap: 4px; }
   .weapon-pref-btn { padding: 5px 10px; font-size: 0.75rem; }
 }
