@@ -685,6 +685,12 @@ function buildUpgradePool() {
     apply: () => { player.diagMult = Math.min(1.0, player.diagMult + CONFIG.diagUpgrade); } });
   pool.push({ weaponId: null, name: 'EHBO-kit',       desc: 'Herstel 40 HP.',
     apply: () => { player.hp = Math.min(player.hp + CONFIG.healUpgrade, player.maxHp); } });
+  if (player.weapons.kauwgom && player.weapons.thermos && !player.koffiestroop) {
+    pool.push({ weaponId: null, evolution: true,
+      name: '☕ Koffiestroop',
+      desc: 'Kauwgom × Thermos: mijnen worden reusachtige koffievlekken. Enorme straal, maximale vertraging.',
+      apply: () => { player.koffiestroop = true; } });
+  }
   return pool;
 }
 
@@ -737,7 +743,7 @@ function resetGame() {
     weapons: { [(k => k[Math.floor(Math.random() * k.length)])(Object.keys(WEAPON_DEFS).filter(k => !WEAPON_DEFS[k].disabled))]: 1 },
     cooldowns: {},
     swing: null, spinSwing: null, liniaalFlash: null,
-    extraCards: 0, thermoGuaranteed: false,
+    extraCards: 0, thermoGuaranteed: false, koffiestroop: false,
     iframeDur: CONFIG.playerIframes, rerollsLeft: 0,
   });
   player._parapluHits.clear();
@@ -1099,8 +1105,11 @@ function update(dt) {
     if (cd.kauwgom <= 0) {
       playSfx('kauwgom');
       const lt = kDef.lifetime[kLvl];
-      mines.push({ x: player.x, y: player.y, r: 14, lifetime: lt, maxLifetime: lt,
-        dmg: kDef.dmg[kLvl], slowDur: kDef.slowDur[kLvl], splashR: kDef.splashR[kLvl] });
+      const ev = player.koffiestroop;
+      mines.push({ x: player.x, y: player.y,
+        r: ev ? 22 : 14, lifetime: ev ? 35 : lt, maxLifetime: ev ? 35 : lt,
+        dmg: ev ? 50 : kDef.dmg[kLvl], slowDur: ev ? 12 : kDef.slowDur[kLvl],
+        splashR: ev ? 120 : kDef.splashR[kLvl], evolved: ev });
       cd.kauwgom = jitter(1 / kDef.rate[kLvl]);
     }
   }
@@ -1125,7 +1134,7 @@ function update(dt) {
         damageEnemy(k, mine.dmg);
       }
     }
-    spawnParticles(mine.x, mine.y, '#ff69b4', 10);
+    spawnParticles(mine.x, mine.y, mine.evolved ? '#8B4513' : '#ff69b4', mine.evolved ? 18 : 10);
     playSound(sfxThermos);
     swapRemove(mines, m);
   }
@@ -1829,18 +1838,29 @@ function drawMines() {
   for (const mine of mines) {
     const fade = Math.max(0.15, mine.lifetime / mine.maxLifetime);
     ctx.globalAlpha = fade;
-    // Blob
-    ctx.fillStyle = '#e8a0d8';
-    ctx.beginPath(); ctx.ellipse(mine.x, mine.y, mine.r * 1.5, mine.r * 0.75, 0, 0, Math.PI * 2); ctx.fill();
-    // Donker midden
-    ctx.fillStyle = '#9b3680';
-    ctx.beginPath(); ctx.ellipse(mine.x, mine.y, mine.r * 0.65, mine.r * 0.33, 0, 0, Math.PI * 2); ctx.fill();
-    // Pulserende rand
-    const pulse = 0.5 + 0.5 * Math.sin(mine.lifetime * 6);
-    ctx.globalAlpha = fade * pulse * 0.8;
-    ctx.strokeStyle = '#ff80d0';
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.ellipse(mine.x, mine.y, mine.r * 1.5, mine.r * 0.75, 0, 0, Math.PI * 2); ctx.stroke();
+    if (mine.evolved) {
+      // Koffievlek
+      ctx.fillStyle = '#5c3317';
+      ctx.beginPath(); ctx.ellipse(mine.x, mine.y, mine.r * 1.5, mine.r * 0.75, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#3b1f0a';
+      ctx.beginPath(); ctx.ellipse(mine.x, mine.y, mine.r * 0.65, mine.r * 0.33, 0, 0, Math.PI * 2); ctx.fill();
+      const pulse = 0.5 + 0.5 * Math.sin(mine.lifetime * 5);
+      ctx.globalAlpha = fade * pulse * 0.9;
+      ctx.strokeStyle = '#d4a017';
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.ellipse(mine.x, mine.y, mine.r * 1.5, mine.r * 0.75, 0, 0, Math.PI * 2); ctx.stroke();
+    } else {
+      // Standaard kauwgom-mijn
+      ctx.fillStyle = '#e8a0d8';
+      ctx.beginPath(); ctx.ellipse(mine.x, mine.y, mine.r * 1.5, mine.r * 0.75, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#9b3680';
+      ctx.beginPath(); ctx.ellipse(mine.x, mine.y, mine.r * 0.65, mine.r * 0.33, 0, 0, Math.PI * 2); ctx.fill();
+      const pulse = 0.5 + 0.5 * Math.sin(mine.lifetime * 6);
+      ctx.globalAlpha = fade * pulse * 0.8;
+      ctx.strokeStyle = '#ff80d0';
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(mine.x, mine.y, mine.r * 1.5, mine.r * 0.75, 0, 0, Math.PI * 2); ctx.stroke();
+    }
     ctx.globalAlpha = 1;
   }
 }
@@ -2366,6 +2386,8 @@ function showLevelUp() {
     const ti = pool.findIndex(u => u.weaponId === 'thermos');
     if (ti >= 0) { guaranteed = pool.splice(ti, 1)[0]; }
   }
+  const evoIdx = pool.findIndex(u => u.evolution);
+  if (evoIdx >= 0) { guaranteed = pool.splice(evoIdx, 1)[0]; }
   pool.sort(() => Math.random() - 0.5);
   if (guaranteed) pool.unshift(guaranteed);
   const choices = pool.slice(0, 3 + (player.extraCards || 0));
