@@ -10,7 +10,8 @@ const CONFIG = {
   // Enemy
   enemyBaseHp:     3,
   enemyBaseSpeed:  70,
-  enemySlowFactor: 0.4,   // snelheidsmultiplier bij thermos-slow
+  enemySlowFactor:      0.4,  // snelheidsmultiplier bij thermos-slow
+  kauwgomSlowFactor:    0.2,  // snelheidsmultiplier bij kauwgom-slow (sterker dan thermos)
   maxEnemyRadius:  16,    // max vijand-radius zodat geen enkele gans vastzit in smalle doorgangen
   maxEnemies:      80,    // safety cap: max totaal aantal enemies tegelijk
   maxBossProj:     12,    // safety cap: max boss-projectielen tegelijk
@@ -72,24 +73,31 @@ function saveHighscore(w, t) {
 }
 // ─── Meta-progressie ─────────────────────────────────────────────────────────
 const SHOP_DEFS = [
-  { id: 'rugzak',       label: 'Stevige rugzak',  cost: 30, desc: 'Start elke run met +10 max HP.' },
-  { id: 'vroege_vogel', label: 'Vroege vogel',     cost: 50, desc: 'Start elke run met een extra willekeurig wapen.' },
-  { id: 'ganzenkenner', label: 'Ganzenkenner',     cost: 80, desc: 'Kies elke wave uit 4 upgrade-kaarten i.p.v. 3.' },
-  { id: 'thermoskan',   label: 'Thermoskan',       cost: 60, desc: 'Thermosbeker altijd aangeboden bij de eerste upgrade-keuze.' },
+  { id: 'rugzak',          label: 'Stevige rugzak',   tier: 1, cost:  80, desc: 'Start elke run met +10 max HP.' },
+  { id: 'betere_schoenen', label: 'Sportschoenen',    tier: 1, cost: 100, desc: 'Start elke run 5% sneller.' },
+  { id: 'thermoskan',      label: 'Thermoskan',       tier: 2, cost: 200, desc: 'Thermosbeker altijd aangeboden bij de eerste upgrade-keuze.' },
+  { id: 'veerkracht',      label: 'Veerkracht',       tier: 2, cost: 220, desc: 'Langer onoverwinnelijk na een treffer (0.85s i.p.v. 0.6s).' },
+  { id: 'veertjes_bonus',  label: 'Verenjas',         tier: 2, cost: 250, desc: 'Elke vijfde kill levert een extra veertje op.' },
+  { id: 'vroege_vogel',    label: 'Vroege vogel',     tier: 3, cost: 450, desc: 'Start elke run met een extra willekeurig wapen.' },
+  { id: 'ganzenkenner',    label: 'Ganzenkenner',     tier: 3, cost: 500, desc: 'Kies elke wave uit 4 upgrade-kaarten i.p.v. 3.' },
+  { id: 'reroll',          label: 'Herkansing',       tier: 3, cost: 480, desc: 'Eén herkansing per run bij de upgrade-keuze.' },
 ];
 
 const MILESTONE_DEFS = [
-  { id: 'ganzenjager', label: 'Ganzenjager',   req: '100 ganzen totaal verslagen', reward: '+1 extra veertje per kill' },
-  { id: 'veteraan',    label: 'Veteraan',       req: 'Overleef wave 10',            reward: 'Kies je startwapen' },
-  { id: 'held',        label: 'Held van Avans', req: 'Overleef wave 20',            reward: '+10 extra veertjes per wave' },
+  { id: 'ganzenjager',    label: 'Ganzenjager',    req: '100 ganzen totaal verslagen',  reward: '+1 extra veertje per kill' },
+  { id: 'veteraan',       label: 'Veteraan',        req: 'Overleef wave 10',             reward: 'Ereplaats in de ganzenhal' },
+  { id: 'doorzetter',     label: 'Doorzetter',      req: '500 ganzen totaal verslagen',  reward: '+1 extra veertje per wave' },
+  { id: 'held',           label: 'Held van Avans',  req: 'Overleef wave 20',             reward: '+10 extra veertjes per wave' },
+  { id: 'schoolkampioen', label: 'Schoolkampioen',  req: 'Overleef wave 30',             reward: 'Eer en roem' },
 ];
 
 const meta = {
   feathers: 0, kills_total: 0, wave_max: 0,
-  upgrades:  { rugzak: false, vroege_vogel: false, ganzenkenner: false, thermoskan: false },
-  milestones: { ganzenjager: false, veteraan: false, held: false },
+  upgrades:  { rugzak: false, betere_schoenen: false, thermoskan: false, veerkracht: false,
+               veertjes_bonus: false, vroege_vogel: false, ganzenkenner: false, reroll: false },
+  milestones: { ganzenjager: false, veteraan: false, doorzetter: false, held: false, schoolkampioen: false },
   weapon_pref: 'random',
-  run_kills: 0, run_feathers: 0,
+  run_kills: 0, run_feathers: 0, run_purchases: 0,
 };
 
 function loadMeta() {
@@ -113,9 +121,11 @@ function saveMeta() {
 }
 
 function checkMilestones() {
-  if (!meta.milestones.ganzenjager && meta.kills_total >= 100) meta.milestones.ganzenjager = true;
-  if (!meta.milestones.veteraan    && meta.wave_max    >= 10)  meta.milestones.veteraan    = true;
-  if (!meta.milestones.held        && meta.wave_max    >= 20)  meta.milestones.held        = true;
+  if (!meta.milestones.ganzenjager    && meta.kills_total >= 100)  meta.milestones.ganzenjager    = true;
+  if (!meta.milestones.veteraan       && meta.wave_max    >= 10)   meta.milestones.veteraan       = true;
+  if (!meta.milestones.doorzetter     && meta.kills_total >= 500)  meta.milestones.doorzetter     = true;
+  if (!meta.milestones.held           && meta.wave_max    >= 20)   meta.milestones.held           = true;
+  if (!meta.milestones.schoolkampioen && meta.wave_max    >= 30)   meta.milestones.schoolkampioen = true;
 }
 
 function updateFeatherDisplay() {
@@ -323,9 +333,9 @@ const WEAPON_DEFS = {
   kauwgom: {
     label: 'Kauwgom',
     maxLevel: 5,
-    dmg:      [3, 5, 7, 10, 14],
+    dmg:      [7, 10, 14, 19, 26],
     rate:     [0.2, 0.3, 0.45, 0.6, 0.8],
-    slowDur:  [2, 2.5, 3, 3.5, 4],
+    slowDur:  [3, 4, 5, 6, 8],
     splashR:  [25, 32, 42, 54, 68],
     lifetime: [8, 10, 12, 15, 20],
   },
@@ -728,6 +738,7 @@ function resetGame() {
     cooldowns: {},
     swing: null, spinSwing: null, liniaalFlash: null,
     extraCards: 0, thermoGuaranteed: false,
+    iframeDur: CONFIG.playerIframes, rerollsLeft: 0,
   });
   player._parapluHits.clear();
   player._passerHits.clear();
@@ -739,17 +750,20 @@ function resetGame() {
   enemies = []; projectiles = []; mines = []; particles = []; pickups = []; bossProjectileCount = 0;
   wave = 1; wavePhase = 'fighting'; waveMessage = null; betweenWavesTimer = 0; elapsed = 0; graceTimer = 0; bananaSlipCount = 0;
   debris = DEBRIS_DEFS.map(d => ({ ...d, vx: 0, vy: 0, angularVel: 0, playerPushTimer: 0 }));
-  meta.run_kills = 0; meta.run_feathers = 0;
+  meta.run_kills = 0; meta.run_feathers = 0; meta.run_purchases = 0;
   applyPermanentUpgrades();
 }
 
 // ─── Permanente upgrades toepassen ───────────────────────────────────────────
 function applyPermanentUpgrades() {
-  if (meta.upgrades.rugzak) { player.maxHp += 10; player.hp += 10; }
-  if (meta.upgrades.ganzenkenner)  player.extraCards      = 1;
-  if (meta.upgrades.thermoskan)    player.thermoGuaranteed = true;
+  if (meta.upgrades.rugzak)          { player.maxHp += 10; player.hp += 10; }
+  if (meta.upgrades.betere_schoenen) player.speed   *= 1.05;
+  if (meta.upgrades.ganzenkenner)    player.extraCards      = 1;
+  if (meta.upgrades.thermoskan)      player.thermoGuaranteed = true;
+  if (meta.upgrades.veerkracht)      player.iframeDur = 0.85;
+  if (meta.upgrades.reroll)          player.rerollsLeft = 1;
 
-  if (meta.milestones.veteraan && meta.weapon_pref !== 'random') {
+  if (['vroege_vogel', 'ganzenkenner', 'reroll'].every(id => meta.upgrades[id]) && meta.weapon_pref !== 'random') {
     const pref = meta.weapon_pref;
     if (WEAPON_DEFS[pref] && !WEAPON_DEFS[pref].disabled) {
       player.weapons   = { [pref]: 1 };
@@ -775,14 +789,38 @@ function applyPermanentUpgrades() {
 function renderCollectie() {
   updateCollectieFeathers();
 
+  const t1bought = ['rugzak', 'betere_schoenen'].filter(id => meta.upgrades[id]).length;
+  const t2bought = ['thermoskan', 'veerkracht', 'veertjes_bonus'].filter(id => meta.upgrades[id]).length;
+
+  const purchaseNotice = document.getElementById('purchase-notice');
+  purchaseNotice.textContent = meta.run_purchases >= 1
+    ? 'Al 1 bonus gekocht deze run — kom terug na je volgende run.'
+    : '';
+
   shopGrid.innerHTML = '';
+  let renderedTier = 0;
   for (const def of SHOP_DEFS) {
+    if (def.tier !== renderedTier) {
+      renderedTier = def.tier;
+      const hdr = document.createElement('div');
+      hdr.className = 'tier-header';
+      hdr.textContent = `Tier ${def.tier}`;
+      shopGrid.appendChild(hdr);
+    }
     const bought    = meta.upgrades[def.id];
+    const tierOk    = def.tier === 1
+                   || (def.tier === 2 && t1bought >= 1)
+                   || (def.tier === 3 && t2bought >= 2);
     const canAfford = meta.feathers >= def.cost;
+    const canBuy    = !bought && tierOk && canAfford && meta.run_purchases < 1;
     const tile = document.createElement('div');
-    tile.className = 'shop-tile' + (bought ? ' bought' : (!canAfford ? ' locked' : ''));
-    tile.innerHTML = `<h3>${def.label}</h3><p>${def.desc}</p><span class="tile-cost">${bought ? '✓ Actief' : `🪶 ${def.cost}`}</span>`;
-    if (!bought && canAfford) tile.addEventListener('click', () => buyUpgrade(def.id));
+    tile.className = 'shop-tile' + (bought ? ' bought' : (!tierOk || !canAfford ? ' locked' : ''));
+    let costText;
+    if (bought)       costText = '✓ Actief';
+    else if (!tierOk) costText = `🔒 Tier ${def.tier}`;
+    else              costText = `🪶 ${def.cost}`;
+    tile.innerHTML = `<h3>${def.label}</h3><p>${def.desc}</p><span class="tile-cost">${costText}</span>`;
+    if (canBuy) tile.addEventListener('click', () => buyUpgrade(def.id));
     shopGrid.appendChild(tile);
   }
 
@@ -795,7 +833,8 @@ function renderCollectie() {
     milestonesGrid.appendChild(tile);
   }
 
-  if (meta.milestones.veteraan) {
+  const startwapenUnlocked = ['vroege_vogel', 'ganzenkenner', 'reroll'].every(id => meta.upgrades[id]);
+  if (startwapenUnlocked) {
     weaponPrefSection.classList.remove('hidden');
     weaponPrefGrid.innerHTML = '';
     const addPrefBtn = (id, label) => {
@@ -816,9 +855,10 @@ function renderCollectie() {
 
 function buyUpgrade(id) {
   const def = SHOP_DEFS.find(d => d.id === id);
-  if (!def || meta.upgrades[id] || meta.feathers < def.cost) return;
+  if (!def || meta.upgrades[id] || meta.feathers < def.cost || meta.run_purchases >= 1) return;
   meta.feathers -= def.cost;
   meta.upgrades[id] = true;
+  meta.run_purchases++;
   saveMeta();
   updateFeatherDisplay();
   renderCollectie();
@@ -848,8 +888,10 @@ function killEnemy(i) {
   if (type === 'bossGoose')
     pickups.push({ x, y, type: 'heart', healAmt: Math.round(player.maxHp * 0.1) });
 
-  const kf = (meta.milestones.ganzenjager ? 2 : 1) + (type === 'bossGoose' ? 2 : 0);
-  meta.feathers += kf; meta.run_feathers += kf; meta.run_kills++;
+  meta.run_kills++;
+  const kf = (meta.milestones.ganzenjager ? 2 : 1) + (type === 'bossGoose' ? 2 : 0)
+           + (meta.upgrades.veertjes_bonus && meta.run_kills % 5 === 0 ? 1 : 0);
+  meta.feathers += kf; meta.run_feathers += kf;
 
   swapRemove(enemies, i);
   if (enemies.length === 0 && wavePhase === 'fighting') {
@@ -857,7 +899,8 @@ function killEnemy(i) {
     for (let k = projectiles.length - 1; k >= 0; k--) {
       if (projectiles[k].fromBoss) { swapRemove(projectiles, k); bossProjectileCount--; }
     }
-    const wf = meta.milestones.held ? 15 : 5;
+    let wf = meta.milestones.held ? 15 : 5;
+    if (meta.milestones.doorzetter) wf += 1;
     meta.feathers += wf; meta.run_feathers += wf;
     wavePhase = 'betweenWaves';
     betweenWavesTimer = CONFIG.waveBreakDuration;
@@ -867,6 +910,7 @@ function killEnemy(i) {
 
 function damageEnemy(i, dmg) {
   const e = enemies[i];
+  if (!e) return false;
   e.hp -= dmg;
   spawnParticles(e.x, e.y, '#fff', 3);
   e.hitTimer = 0.12;
@@ -1147,7 +1191,7 @@ function update(dt) {
     }
 
     const graceMult = graceTimer > 0 ? 0.25 + 0.75 * (1 - graceTimer) : 1;
-    const spd = e.speed * (e.slowTimer > 0 ? CONFIG.enemySlowFactor : 1) * (e.kauwgomSlowTimer > 0 ? CONFIG.enemySlowFactor : 1) * graceMult;
+    const spd = e.speed * (e.slowTimer > 0 ? CONFIG.enemySlowFactor : 1) * (e.kauwgomSlowTimer > 0 ? CONFIG.kauwgomSlowFactor : 1) * graceMult;
     // Bosses mikken op een punt iets vóór de speler (intercept), overige vijanden direct op de speler
     let targetX = player.x, targetY = player.y;
     if (e.type === 'bossGoose' && (player.vx !== 0 || player.vy !== 0)) {
@@ -1220,7 +1264,7 @@ function update(dt) {
     // Hits player
     const cdx = e.x - player.x, cdy = e.y - player.y, cR = e.r + player.r;
     if (player.invincible <= 0 && cdx*cdx + cdy*cdy < cR*cR) {
-      player.hp -= CONFIG.contactDamage; player.invincible = CONFIG.playerIframes;
+      player.hp -= CONFIG.contactDamage; player.invincible = player.iframeDur;
       playSound(sfxAuw);
       spawnParticles(player.x, player.y, '#e74c3c', 8);
       if (player.hp <= 0) { player.hp = 0; endGame(); return; }
@@ -1279,7 +1323,7 @@ function update(dt) {
       if (!p.fromBoss) continue;
       if (player.invincible > 0) continue;
       if ((p.x-player.x)*(p.x-player.x)+(p.y-player.y)*(p.y-player.y) > (p.r+player.r)*(p.r+player.r)) continue;
-      player.hp -= p.dmg; player.invincible = CONFIG.playerIframes;
+      player.hp -= p.dmg; player.invincible = player.iframeDur;
       playSound(sfxAuw);
       spawnParticles(player.x, player.y, '#8B0000', 8);
       swapRemove(projectiles, j); bossProjectileCount--;
@@ -2350,6 +2394,13 @@ function showLevelUp() {
       requestAnimationFrame(loop);
     });
     upgradeOpts.appendChild(card);
+  }
+  if (player.rerollsLeft > 0) {
+    const btn = document.createElement('button');
+    btn.className = 'reroll-btn';
+    btn.textContent = '🔄 Andere opties';
+    btn.addEventListener('click', () => { player.rerollsLeft--; showLevelUp(); });
+    upgradeOpts.appendChild(btn);
   }
   levelPanel.classList.remove('hidden');
 }
