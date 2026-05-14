@@ -295,10 +295,12 @@ const weaponPrefGrid       = document.getElementById('weapon-pref-grid');
 
 // ─── Enemy types ─────────────────────────────────────────────────────────────
 const ENEMY_TYPES = {
-  normal: { hpMult: 1.0, speedMult: 1.0, sizeMult: 1.0,  color: null,      ignoresObstacles: false },
-  tank:   { hpMult: 3.5, speedMult: 0.6, sizeMult: 1.5,  color: '#8d6e14', ignoresObstacles: false },
-  flyer:    { hpMult: 0.7, speedMult: 1.4,  sizeMult: 0.85, color: '#9b59b6', ignoresObstacles: true  },
-  bossGoose:{ hpMult: 4,   speedMult: 1.3,  sizeMult: 2.6,  color: '#8B0000', ignoresObstacles: false },
+  normal:       { hpMult: 1.0, speedMult: 1.0,  sizeMult: 1.0,  color: null,      ignoresObstacles: false },
+  tank:         { hpMult: 3.5, speedMult: 0.6,  sizeMult: 1.5,  color: '#8d6e14', ignoresObstacles: false },
+  flyer:        { hpMult: 0.7, speedMult: 1.4,  sizeMult: 0.85, color: '#9b59b6', ignoresObstacles: true  },
+  bossGoose:    { hpMult: 4,   speedMult: 1.3,  sizeMult: 2.6,  color: '#8B0000', ignoresObstacles: false },
+  splitter:     { hpMult: 2.0, speedMult: 0.75, sizeMult: 1.4,  color: '#e67e22', ignoresObstacles: false },
+  splitterSmall:{ hpMult: 0.6, speedMult: 1.6,  sizeMult: 0.55, color: '#f1c40f', ignoresObstacles: false },
 };
 
 // ─── Weapon definitions ───────────────────────────────────────────────────────
@@ -653,7 +655,7 @@ function spawnEnemiesForWave(waveNum) {
     }
   } else {
     for (let i = 0; i < waveNum + 2; i++) {
-      const typePool = ['normal', ...(waveNum >= 2 ? ['tank'] : []), ...(waveNum >= 3 ? ['flyer'] : [])];
+      const typePool = ['normal', ...(waveNum >= 2 ? ['tank'] : []), ...(waveNum >= 3 ? ['flyer'] : []), ...(waveNum >= 4 ? ['splitter'] : [])];
       const type = typePool[Math.floor(Math.random() * typePool.length)];
       spawnOneEnemy(waveNum, type);
     }
@@ -888,11 +890,23 @@ function closeCollectie() {
 // ─── Kill helper ──────────────────────────────────────────────────────────────
 function killEnemy(i) {
   playSfx('gans');
-  const { x, y, r, type } = enemies[i];
+  const { x, y, r, type, tier } = enemies[i];
   spawnParticles(x, y, '#e0e0e0', 10);
   deathEffects.push({ x, y, r: r * 0.5, maxR: r * 2.5, life: 0.35, maxLife: 0.35 });
   if (type === 'bossGoose')
     pickups.push({ x, y, type: 'heart', healAmt: Math.round(player.maxHp * 0.1) });
+
+  if (type === 'splitter') {
+    const sDef = ENEMY_TYPES.splitterSmall;
+    const sR   = Math.min(CONFIG.maxEnemyRadius, Math.ceil(CONFIG.playerRadius * 1.1 * sDef.sizeMult));
+    const sHp  = Math.ceil((CONFIG.enemyBaseHp + tier * 2) * sDef.hpMult);
+    const sSpd = (CONFIG.enemyBaseSpeed + Math.sqrt(tier) * 25) * sDef.speedMult;
+    for (let s = 0; s < 2; s++) {
+      enemies.push({ x: x + (s === 0 ? -sR * 2.5 : sR * 2.5), y,
+        r: sR, hp: sHp, maxHp: sHp, speed: sSpd, tier, type: 'splitterSmall',
+        slowTimer: 0, kauwgomSlowTimer: 0, hitTimer: 0, kbx: 0, kby: 0 });
+    }
+  }
 
   meta.run_kills++;
   const kf = (meta.milestones.ganzenjager ? 2 : 1) + (type === 'bossGoose' ? 2 : 0)
@@ -1107,9 +1121,9 @@ function update(dt) {
       const lt = kDef.lifetime[kLvl];
       const ev = player.koffiestroop;
       mines.push({ x: player.x, y: player.y,
-        r: ev ? 22 : 14, lifetime: ev ? 35 : lt, maxLifetime: ev ? 35 : lt,
-        dmg: ev ? 50 : kDef.dmg[kLvl], slowDur: ev ? 12 : kDef.slowDur[kLvl],
-        splashR: ev ? 120 : kDef.splashR[kLvl], evolved: ev });
+        r: ev ? 22 : 14, lifetime: ev ? 25 : lt, maxLifetime: ev ? 25 : lt,
+        dmg: ev ? 35 : kDef.dmg[kLvl], slowDur: ev ? 8 : kDef.slowDur[kLvl],
+        splashR: ev ? 90 : kDef.splashR[kLvl], evolved: ev });
       cd.kauwgom = jitter(1 / kDef.rate[kLvl]);
     }
   }
@@ -1662,6 +1676,12 @@ function drawGoose(e) {
 
   const sprite = buildGooseSprite(r, color);
   ctx.drawImage(sprite, -r, -sprite.height / 2, sprite.width, sprite.height);
+
+  if (type === 'splitter') {
+    ctx.strokeStyle = 'rgba(255,255,255,0.7)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(-r * 0.5, 0); ctx.lineTo(r * 0.5, 0); ctx.stroke();
+  }
 
   ctx.restore();
 
