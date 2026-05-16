@@ -302,13 +302,16 @@ const ENEMY_TYPES = {
   bossGoose:    { hpMult: 4,   speedMult: 1.3,  sizeMult: 2.6,  color: '#8B0000', ignoresObstacles: false },
   splitter:     { hpMult: 2.0, speedMult: 0.75, sizeMult: 1.4,  color: '#e67e22', ignoresObstacles: false },
   splitterSmall:{ hpMult: 0.6, speedMult: 1.6,  sizeMult: 0.55, color: '#f1c40f', ignoresObstacles: false },
-  zwerm:        { hpMult: 0.3, speedMult: 2.2,  sizeMult: 0.4,  color: '#e74c3c', ignoresObstacles: false },
+  zwerm:           { hpMult: 0.3,  speedMult: 2.2,  sizeMult: 0.4,  color: '#e74c3c', ignoresObstacles: false },
+  supertank:       { hpMult: 8.0,  speedMult: 0.38, sizeMult: 2.3,  color: '#8d6e14', ignoresObstacles: false },
+  supertankShard:  { hpMult: 1.8,  speedMult: 0.85, sizeMult: 1.1,  color: '#8d6e14', ignoresObstacles: false },
 };
 const NEW_ENEMY_ANNOUNCE = {
    2: 'Pantsergans betreedt het veld!',
    3: 'Vliegende gans betreedt het veld!',
    7: 'Splitsende gans betreedt het veld!',
   15: 'Zwermgans betreedt het veld!',
+  21: 'Supertank betreedt het veld!',
 };
 
 // ─── Weapon definitions ───────────────────────────────────────────────────────
@@ -664,7 +667,7 @@ function spawnEnemiesForWave(waveNum) {
     }
   } else {
     for (let i = 0; i < waveNum + 2; i++) {
-      const typePool = ['normal', ...(waveNum >= 2 ? ['tank'] : []), ...(waveNum >= 3 ? ['flyer'] : []), ...(waveNum >= 7 ? ['splitter'] : []), ...(waveNum >= 15 ? ['zwerm'] : [])];
+      const typePool = ['normal', ...(waveNum >= 2 ? ['tank'] : []), ...(waveNum >= 3 ? ['flyer'] : []), ...(waveNum >= 7 ? ['splitter'] : []), ...(waveNum >= 15 ? ['zwerm'] : []), ...(waveNum >= 21 ? ['supertank'] : [])];
       const type = typePool[Math.floor(Math.random() * typePool.length)];
       spawnOneEnemy(waveNum, type);
       if (type === 'zwerm') { spawnOneEnemy(waveNum, 'zwerm'); spawnOneEnemy(waveNum, 'zwerm'); }
@@ -926,6 +929,29 @@ function killEnemy(i) {
     for (let s = 0; s < 2; s++) {
       enemies.push({ x: x + (s === 0 ? -sR * 2.5 : sR * 2.5), y,
         r: sR, hp: sHp, maxHp: sHp, speed: sSpd, tier, type: 'splitterSmall',
+        slowTimer: 0, kauwgomSlowTimer: 0, hitTimer: 0, kbx: 0, kby: 0 });
+    }
+  }
+  if (type === 'supertank') {
+    const sDef = ENEMY_TYPES.supertankShard;
+    const sR   = Math.min(CONFIG.maxEnemyRadius, Math.ceil((11 + tier * 1.5) * sDef.sizeMult));
+    const sHp  = Math.ceil((CONFIG.enemyBaseHp + tier * 2) * sDef.hpMult);
+    const sSpd = (CONFIG.enemyBaseSpeed + Math.sqrt(tier) * 25) * sDef.speedMult;
+    for (let s = 0; s < 3; s++) {
+      const a = (s / 3) * Math.PI * 2;
+      enemies.push({ x: x + Math.cos(a) * r * 1.2, y: y + Math.sin(a) * r * 1.2,
+        r: sR, hp: sHp, maxHp: sHp, speed: sSpd, tier, type: 'supertankShard',
+        slowTimer: 0, kauwgomSlowTimer: 0, hitTimer: 0, kbx: 0, kby: 0 });
+    }
+  }
+  if (type === 'supertankShard') {
+    const zDef = ENEMY_TYPES.zwerm;
+    const zR   = Math.min(CONFIG.maxEnemyRadius, Math.ceil((11 + tier * 1.5) * zDef.sizeMult));
+    const zHp  = Math.ceil((CONFIG.enemyBaseHp + tier * 2) * zDef.hpMult);
+    const zSpd = (CONFIG.enemyBaseSpeed + Math.sqrt(tier) * 25) * zDef.speedMult;
+    for (let s = 0; s < 2; s++) {
+      enemies.push({ x: x + (s === 0 ? -zR * 2 : zR * 2), y,
+        r: zR, hp: zHp, maxHp: zHp, speed: zSpd, tier, type: 'zwerm',
         slowTimer: 0, kauwgomSlowTimer: 0, hitTimer: 0, kbx: 0, kby: 0 });
     }
   }
@@ -1748,11 +1774,16 @@ function drawGoose(e) {
     ctx.beginPath(); ctx.moveTo(-r*0.3,  0);      ctx.lineTo(-r*1.5,  0);      ctx.stroke();
     ctx.beginPath(); ctx.moveTo(-r*0.5,  r*0.3);  ctx.lineTo(-r*1.3,  r*0.3); ctx.stroke();
   }
-  if (type === 'tank') {
+  if (type === 'tank' || type === 'supertank' || type === 'supertankShard') {
     const ratio = hp / maxHp;
-    ctx.strokeStyle = `rgba(255,200,0,${(0.6 * ratio).toFixed(2)})`;
+    const alpha = (0.6 * ratio).toFixed(2);
+    ctx.strokeStyle = `rgba(255,200,0,${alpha})`;
     ctx.lineWidth = 3.5 * ratio;
     ctx.beginPath(); ctx.ellipse(0, 0, r * 1.08, r * 0.78, 0, 0, Math.PI * 2); ctx.stroke();
+    if (type === 'supertank') {
+      ctx.lineWidth = 2 * ratio;
+      ctx.beginPath(); ctx.ellipse(0, 0, r * 1.22, r * 0.92, 0, 0, Math.PI * 2); ctx.stroke();
+    }
   }
   if (type === 'flyer') {
     ctx.fillStyle = 'rgba(155,89,182,0.55)';
