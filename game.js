@@ -1743,8 +1743,9 @@ function drawGoose(e) {
     ctx.beginPath(); ctx.moveTo(-r*0.5,  r*0.3);  ctx.lineTo(-r*1.3,  r*0.3); ctx.stroke();
   }
   if (type === 'tank') {
-    ctx.strokeStyle = 'rgba(255,200,0,0.6)';
-    ctx.lineWidth = 3.5;
+    const ratio = hp / maxHp;
+    ctx.strokeStyle = `rgba(255,200,0,${(0.6 * ratio).toFixed(2)})`;
+    ctx.lineWidth = 3.5 * ratio;
     ctx.beginPath(); ctx.ellipse(0, 0, r * 1.08, r * 0.78, 0, 0, Math.PI * 2); ctx.stroke();
   }
   if (type === 'flyer') {
