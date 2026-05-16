@@ -1733,6 +1733,16 @@ function drawGoose(e) {
     ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.moveTo(-r * 0.5, 0); ctx.lineTo(r * 0.5, 0); ctx.stroke();
   }
+  if (type === 'tank') {
+    ctx.strokeStyle = 'rgba(255,200,0,0.6)';
+    ctx.lineWidth = 3.5;
+    ctx.beginPath(); ctx.ellipse(0, 0, r * 1.08, r * 0.78, 0, 0, Math.PI * 2); ctx.stroke();
+  }
+  if (type === 'flyer') {
+    ctx.fillStyle = 'rgba(155,89,182,0.55)';
+    ctx.beginPath(); ctx.ellipse(-r*0.1, -r*0.85, r*0.55, r*0.2,  0.4, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(-r*0.1,  r*0.85, r*0.55, r*0.2, -0.4, 0, Math.PI*2); ctx.fill();
+  }
 
   ctx.restore();
 
