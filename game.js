@@ -303,8 +303,8 @@ const ENEMY_TYPES = {
   splitter:     { hpMult: 2.0, speedMult: 0.75, sizeMult: 1.4,  color: '#e67e22', ignoresObstacles: false },
   splitterSmall:{ hpMult: 0.6, speedMult: 1.6,  sizeMult: 0.55, color: '#f1c40f', ignoresObstacles: false },
   zwerm:           { hpMult: 0.3,  speedMult: 2.2,  sizeMult: 0.4,  color: '#e74c3c', ignoresObstacles: false },
-  supertank:       { hpMult: 8.0,  speedMult: 0.38, sizeMult: 2.3,  color: '#8d6e14', ignoresObstacles: false },
-  supertankShard:  { hpMult: 1.8,  speedMult: 0.85, sizeMult: 1.1,  color: '#8d6e14', ignoresObstacles: false },
+  supertank:       { hpMult: 4.0,  speedMult: 0.38, sizeMult: 2.3,  color: '#2980b9', ignoresObstacles: false },
+  supertankShard:  { hpMult: 2.8,  speedMult: 1.3,  sizeMult: 1.1,  color: '#8d6e14', ignoresObstacles: false },
 };
 const NEW_ENEMY_ANNOUNCE = {
    2: 'Pantsergans betreedt het veld!',
@@ -1774,16 +1774,19 @@ function drawGoose(e) {
     ctx.beginPath(); ctx.moveTo(-r*0.3,  0);      ctx.lineTo(-r*1.5,  0);      ctx.stroke();
     ctx.beginPath(); ctx.moveTo(-r*0.5,  r*0.3);  ctx.lineTo(-r*1.3,  r*0.3); ctx.stroke();
   }
-  if (type === 'tank' || type === 'supertank' || type === 'supertankShard') {
+  if (type === 'tank' || type === 'supertankShard') {
     const ratio = hp / maxHp;
-    const alpha = (0.6 * ratio).toFixed(2);
-    ctx.strokeStyle = `rgba(255,200,0,${alpha})`;
+    ctx.strokeStyle = `rgba(255,200,0,${(0.6 * ratio).toFixed(2)})`;
     ctx.lineWidth = 3.5 * ratio;
     ctx.beginPath(); ctx.ellipse(0, 0, r * 1.08, r * 0.78, 0, 0, Math.PI * 2); ctx.stroke();
-    if (type === 'supertank') {
-      ctx.lineWidth = 2 * ratio;
-      ctx.beginPath(); ctx.ellipse(0, 0, r * 1.22, r * 0.92, 0, 0, Math.PI * 2); ctx.stroke();
-    }
+  }
+  if (type === 'supertank') {
+    const ratio = hp / maxHp;
+    ctx.strokeStyle = `rgba(52,152,219,${(0.7 * ratio).toFixed(2)})`;
+    ctx.lineWidth = 3.5 * ratio;
+    ctx.beginPath(); ctx.ellipse(0, 0, r * 1.08, r * 0.78, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.lineWidth = 2 * ratio;
+    ctx.beginPath(); ctx.ellipse(0, 0, r * 1.22, r * 0.92, 0, 0, Math.PI * 2); ctx.stroke();
   }
   if (type === 'flyer') {
     ctx.fillStyle = 'rgba(155,89,182,0.55)';
