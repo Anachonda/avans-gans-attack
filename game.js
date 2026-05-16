@@ -73,21 +73,21 @@ function saveHighscore(w, t) {
 }
 // ─── Meta-progressie ─────────────────────────────────────────────────────────
 const SHOP_DEFS = [
-  { id: 'rugzak',          label: 'Stevige rugzak',   tier: 1, cost:  80, desc: 'Start elke run met +10 max HP.' },
-  { id: 'betere_schoenen', label: 'Sportschoenen',    tier: 1, cost: 100, desc: 'Start elke run 5% sneller.' },
-  { id: 'thermoskan',      label: 'Thermoskan',       tier: 2, cost: 200, desc: 'Thermosbeker altijd aangeboden bij de eerste upgrade-keuze.' },
-  { id: 'veerkracht',      label: 'Veerkracht',       tier: 2, cost: 220, desc: 'Langer onoverwinnelijk na een treffer (0.85s i.p.v. 0.6s).' },
-  { id: 'veertjes_bonus',  label: 'Verenjas',         tier: 2, cost: 250, desc: 'Elke vijfde kill levert een extra veertje op.' },
-  { id: 'vroege_vogel',    label: 'Vroege vogel',     tier: 3, cost: 450, desc: 'Start elke run met een extra willekeurig wapen.' },
-  { id: 'ganzenkenner',    label: 'Ganzenkenner',     tier: 3, cost: 500, desc: 'Kies elke wave uit 4 upgrade-kaarten i.p.v. 3.' },
-  { id: 'reroll',          label: 'Herkansing',       tier: 3, cost: 480, desc: 'Eén herkansing per run bij de upgrade-keuze.' },
+  { id: 'rugzak',          label: 'Stevige rugzak',   tier: 1, cost:  55, desc: 'Start elke run met +10 max HP.' },
+  { id: 'betere_schoenen', label: 'Sportschoenen',    tier: 1, cost:  70, desc: 'Start elke run 5% sneller.' },
+  { id: 'thermoskan',      label: 'Thermoskan',       tier: 2, cost: 140, desc: 'Thermosbeker altijd aangeboden bij de eerste upgrade-keuze.' },
+  { id: 'veerkracht',      label: 'Veerkracht',       tier: 2, cost: 155, desc: 'Langer onoverwinnelijk na een treffer (0.85s i.p.v. 0.6s).' },
+  { id: 'veertjes_bonus',  label: 'Verenjas',         tier: 2, cost: 175, desc: 'Elke 3 waves een extra veertje.' },
+  { id: 'vroege_vogel',    label: 'Vroege vogel',     tier: 3, cost: 300, desc: 'Start elke run met een extra willekeurig wapen.' },
+  { id: 'ganzenkenner',    label: 'Ganzenkenner',     tier: 3, cost: 350, desc: 'Kies elke wave uit 4 upgrade-kaarten i.p.v. 3.' },
+  { id: 'reroll',          label: 'Herkansing',       tier: 3, cost: 325, desc: 'Eén herkansing per run bij de upgrade-keuze.' },
 ];
 
 const MILESTONE_DEFS = [
-  { id: 'ganzenjager',    label: 'Ganzenjager',    req: '100 ganzen totaal verslagen',  reward: '+1 extra veertje per kill' },
+  { id: 'ganzenjager',    label: 'Ganzenjager',    req: '100 ganzen totaal verslagen',  reward: '+1 extra veertje per boss-kill' },
   { id: 'veteraan',       label: 'Veteraan',        req: 'Overleef wave 10',             reward: 'Ereplaats in de ganzenhal' },
   { id: 'doorzetter',     label: 'Doorzetter',      req: '500 ganzen totaal verslagen',  reward: '+1 extra veertje per wave' },
-  { id: 'held',           label: 'Held van Avans',  req: 'Overleef wave 20',             reward: '+10 extra veertjes per wave' },
+  { id: 'held',           label: 'Held van Avans',  req: 'Overleef wave 20',             reward: '+3 extra veertjes per wave' },
   { id: 'schoolkampioen', label: 'Schoolkampioen',  req: 'Overleef wave 30',             reward: 'Eer en roem' },
 ];
 
@@ -326,7 +326,6 @@ const WEAPON_DEFS = {
   },
   passer: {
     label: 'Passer',
-    disabled: true,
     maxLevel: 5,
     dmg:      [2, 3, 5, 7, 9],
     reach:    [70, 80, 90, 100, 115],
@@ -693,6 +692,18 @@ function buildUpgradePool() {
       desc: 'Kauwgom × Thermos: mijnen worden reusachtige koffievlekken. Enorme straal, maximale vertraging.',
       apply: () => { player.koffiestroop = true; } });
   }
+  if (player.weapons.boek && player.weapons.rugzak && !player.boekentas) {
+    pool.push({ weaponId: null, evolution: true,
+      name: '🎒 Boekentas',
+      desc: 'Boek × Rugzak: elk boek-treffer veroorzaakt een mini-explosie op het raakpunt.',
+      apply: () => { player.boekentas = true; } });
+  }
+  if (player.weapons.paraplu && player.weapons.passer && !player.stormparaplu) {
+    pool.push({ weaponId: null, evolution: true,
+      name: '🌀 Stormparaplu',
+      desc: 'Paraplu × Passer: na elke spin schieten paraplu-messen in alle richtingen weg.',
+      apply: () => { player.stormparaplu = true; } });
+  }
   return pool;
 }
 
@@ -745,7 +756,7 @@ function resetGame() {
     weapons: { [(k => k[Math.floor(Math.random() * k.length)])(Object.keys(WEAPON_DEFS).filter(k => !WEAPON_DEFS[k].disabled))]: 1 },
     cooldowns: {},
     swing: null, spinSwing: null, liniaalFlash: null,
-    extraCards: 0, thermoGuaranteed: false, koffiestroop: false,
+    extraCards: 0, thermoGuaranteed: false, koffiestroop: false, boekentas: false, stormparaplu: false,
     iframeDur: CONFIG.playerIframes, rerollsLeft: 0,
   });
   player._parapluHits.clear();
@@ -758,7 +769,7 @@ function resetGame() {
   enemies = []; projectiles = []; mines = []; particles = []; pickups = []; bossProjectileCount = 0;
   wave = 1; wavePhase = 'fighting'; waveMessage = null; betweenWavesTimer = 0; elapsed = 0; graceTimer = 0; bananaSlipCount = 0;
   debris = DEBRIS_DEFS.map(d => ({ ...d, vx: 0, vy: 0, angularVel: 0, playerPushTimer: 0 }));
-  meta.run_kills = 0; meta.run_feathers = 0; meta.run_purchases = 0;
+  meta.run_kills = 0; meta.run_feathers = 0; meta.run_purchases = 0; meta.run_waves = 0;
   applyPermanentUpgrades();
 }
 
@@ -909,9 +920,8 @@ function killEnemy(i) {
   }
 
   meta.run_kills++;
-  const kf = (meta.milestones.ganzenjager ? 2 : 1) + (type === 'bossGoose' ? 2 : 0)
-           + (meta.upgrades.veertjes_bonus && meta.run_kills % 5 === 0 ? 1 : 0);
-  meta.feathers += kf; meta.run_feathers += kf;
+  const kf = type === 'bossGoose' ? (1 + (meta.milestones.ganzenjager ? 1 : 0)) : 0;
+  if (kf > 0) { meta.feathers += kf; meta.run_feathers += kf; }
 
   swapRemove(enemies, i);
   if (enemies.length === 0 && wavePhase === 'fighting') {
@@ -919,8 +929,9 @@ function killEnemy(i) {
     for (let k = projectiles.length - 1; k >= 0; k--) {
       if (projectiles[k].fromBoss) { swapRemove(projectiles, k); bossProjectileCount--; }
     }
-    let wf = meta.milestones.held ? 15 : 5;
-    if (meta.milestones.doorzetter) wf += 1;
+    meta.run_waves++;
+    let wf = 3 + (meta.milestones.held ? 3 : 0) + (meta.milestones.doorzetter ? 1 : 0)
+           + (meta.upgrades.veertjes_bonus && meta.run_waves % 3 === 0 ? 1 : 0);
     meta.feathers += wf; meta.run_feathers += wf;
     wavePhase = 'betweenWaves';
     betweenWavesTimer = CONFIG.waveBreakDuration;
@@ -1019,7 +1030,19 @@ function update(dt) {
     const passDef = WEAPON_DEFS.passer;
     if (player.spinSwing) {
       player.spinSwing.progress += dt / player.spinSwing.duration;
-      if (player.spinSwing.progress >= 1) player.spinSwing = null;
+      if (player.spinSwing.progress >= 1) {
+        if (player.stormparaplu) {
+          const bladeCount = 6;
+          const pDef2 = WEAPON_DEFS.paraplu, pLvl2 = wlvl('paraplu') || 0;
+          const bladeDmg = pDef2 ? pDef2.dmg[pLvl2] : 4;
+          for (let b = 0; b < bladeCount; b++) {
+            const a = (b / bladeCount) * Math.PI * 2;
+            projectiles.push({ x: player.x, y: player.y, vx: Math.cos(a) * 320, vy: Math.sin(a) * 320,
+              r: 7, dmg: bladeDmg, type: 'stormBlade', life: 0.5, pierced: null });
+          }
+        }
+        player.spinSwing = null;
+      }
     }
     cd.passer = (cd.passer || 0) - dt;
     if (cd.passer <= 0 && !player.spinSwing) {
@@ -1158,6 +1181,7 @@ function update(dt) {
     const p = projectiles[i];
     p.x += p.vx * dt; p.y += p.vy * dt;
     if (p.type === 'boek') p.angle += dt * 6;
+    if (p.life !== undefined) { p.life -= dt; if (p.life <= 0) { swapRemove(projectiles, i); continue; } }
     if (p.x < -40 || p.x > CONFIG.mapWidth + 40 || p.y < -40 || p.y > CONFIG.mapHeight + 40
         || collidesWithObstacles(p.x, p.y, p.r)) {
       if (p.fromBoss) bossProjectileCount--;
@@ -1435,6 +1459,24 @@ function update(dt) {
         if (p.pierced && p.pierced.has(i)) continue;
         if (p.pierced) p.pierced.add(i); else swapRemove(projectiles, j);
         spawnParticles(e.x, e.y, '#8B2500', 4);
+        killed = damageEnemy(i, p.dmg);
+        if (player.boekentas) {
+          const bSplashR2 = 40 * 40;
+          const bSplashDmg = Math.max(1, Math.floor(p.dmg / 2));
+          for (let k = enemies.length - 1; k >= 0; k--) {
+            if (k === i) continue;
+            const bkdx = enemies[k].x - p.x, bkdy = enemies[k].y - p.y;
+            if (bkdx*bkdx + bkdy*bkdy < bSplashR2) damageEnemy(k, bSplashDmg);
+          }
+          spawnParticles(p.x, p.y, '#8B4513', 6);
+        }
+        if (killed) break;
+      }
+
+      // Stormparaplu bladen
+      if (p.type === 'stormBlade') {
+        spawnParticles(e.x, e.y, '#a855f7', 3);
+        swapRemove(projectiles, j);
         killed = damageEnemy(i, p.dmg);
         if (killed) break;
       }
@@ -1922,6 +1964,16 @@ function drawProjectiles() {
       ctx.beginPath(); ctx.arc(0, 0, p.r, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#FF4444';
       ctx.beginPath(); ctx.arc(-3, -3, p.r * 0.4, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    } else if (p.type === 'stormBlade') {
+      ctx.save();
+      ctx.translate(p.x, p.y); ctx.rotate(Math.atan2(p.vy, p.vx));
+      ctx.globalAlpha = p.life !== undefined ? Math.min(1, p.life / 0.5) : 1;
+      ctx.fillStyle = '#c084fc';
+      ctx.beginPath(); ctx.ellipse(0, 0, p.r * 1.6, p.r * 0.5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#7c3aed'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.ellipse(0, 0, p.r * 1.6, p.r * 0.5, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.globalAlpha = 1;
       ctx.restore();
     }
   }
