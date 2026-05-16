@@ -304,6 +304,12 @@ const ENEMY_TYPES = {
   splitterSmall:{ hpMult: 0.6, speedMult: 1.6,  sizeMult: 0.55, color: '#f1c40f', ignoresObstacles: false },
   zwerm:        { hpMult: 0.3, speedMult: 2.2,  sizeMult: 0.4,  color: '#e74c3c', ignoresObstacles: false },
 };
+const NEW_ENEMY_ANNOUNCE = {
+   2: 'Pantsergans betreedt het veld!',
+   3: 'Vliegende gans betreedt het veld!',
+   7: 'Splitsende gans betreedt het veld!',
+  15: 'Zwermgans betreedt het veld!',
+};
 
 // ─── Weapon definitions ───────────────────────────────────────────────────────
 // Each weapon has levels 1-5. Stats are arrays indexed by (level - 1).
@@ -2369,6 +2375,11 @@ function draw() {
     ctx.font = isBossMsg ? 'bold 44px sans-serif' : 'bold 36px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(waveMessage.text, CANVAS_W/2, CANVAS_H/2 - 20);
+    if (waveMessage.subtext) {
+      ctx.font = 'bold 22px sans-serif';
+      ctx.fillStyle = '#f0c040';
+      ctx.fillText(waveMessage.subtext, CANVAS_W/2, CANVAS_H/2 + 18);
+    }
     ctx.globalAlpha = 1; ctx.textAlign = 'left';
   }
 
@@ -2521,7 +2532,7 @@ function showLevelUp() {
       wave++;
       wavePhase = 'startingWave';
       betweenWavesTimer = CONFIG.waveBreakDuration;
-      waveMessage = { text: `Wave ${wave} start!`, timer: CONFIG.waveBreakDuration };
+      waveMessage = { text: `Wave ${wave} start!`, timer: CONFIG.waveBreakDuration, subtext: NEW_ENEMY_ANNOUNCE[wave] };
       state = 'playing';
       lastTime = performance.now();
       pauseBtn.classList.remove('hidden');
