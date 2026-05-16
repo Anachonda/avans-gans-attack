@@ -415,6 +415,8 @@ const player = {
 };
 
 const camera    = { x: 0, y: 0 };
+let screenShake = 0;
+let hitStop     = 0;
 
 // ─── Map image ────────────────────────────────────────────────────────────────
 const mapImage = new Image();
@@ -949,7 +951,11 @@ function damageEnemy(i, dmg) {
   const kbAngle = Math.atan2(e.y - player.y, e.x - player.x);
   e.kbx = Math.cos(kbAngle) * 80;
   e.kby = Math.sin(kbAngle) * 80;
-  if (e.hp <= 0) { killEnemy(i); return true; }
+  if (e.hp <= 0) {
+    screenShake = Math.max(screenShake, e.type === 'bossGoose' ? 0.18 : 0.07);
+    hitStop     = Math.max(hitStop,     e.type === 'bossGoose' ? 2    : 1);
+    killEnemy(i); return true;
+  }
   return false;
 }
 
@@ -1313,6 +1319,7 @@ function update(dt) {
     const cdx = e.x - player.x, cdy = e.y - player.y, cR = e.r + player.r;
     if (player.invincible <= 0 && cdx*cdx + cdy*cdy < cR*cR) {
       player.hp -= CONFIG.contactDamage; player.invincible = player.iframeDur;
+      screenShake = Math.max(screenShake, 0.12);
       playSound(sfxAuw);
       spawnParticles(player.x, player.y, '#e74c3c', 8);
       if (player.hp <= 0) { player.hp = 0; endGame(); return; }
@@ -1372,6 +1379,7 @@ function update(dt) {
       if (player.invincible > 0) continue;
       if ((p.x-player.x)*(p.x-player.x)+(p.y-player.y)*(p.y-player.y) > (p.r+player.r)*(p.r+player.r)) continue;
       player.hp -= p.dmg; player.invincible = player.iframeDur;
+      screenShake = Math.max(screenShake, 0.12);
       playSound(sfxAuw);
       spawnParticles(player.x, player.y, '#8B0000', 8);
       swapRemove(projectiles, j); bossProjectileCount--;
@@ -2268,6 +2276,7 @@ function draw() {
 
   ctx.save();              // buitenste save: schaal
   ctx.scale(scaleX, scaleY);
+  if (screenShake > 0) ctx.translate((Math.random() - 0.5) * 8, (Math.random() - 0.5) * 8);
 
   ctx.save();              // binnenste save: cameravertaling
   ctx.translate(-camera.x, -camera.y);
@@ -2379,7 +2388,8 @@ function loop(ts) {
   const dt = Math.min((ts - lastTime) / 1000, 0.05);
   lastTime = ts;
   try {
-    update(dt);
+    if (hitStop > 0) { hitStop--; } else { update(dt); }
+    if (screenShake > 0) screenShake = Math.max(0, screenShake - dt);
     draw();
   } catch (err) {
     console.error('Game loop exception:', err);
