@@ -183,6 +183,12 @@ button:hover { background: #a0001f; }
   margin-bottom: 14px;
 }
 
+#run-stats { width: 100%; margin-bottom: 14px; font-size: 0.85rem; color: #e8e8e8; }
+#run-stats.hidden { display: none; }
+#run-stats table { width: 100%; border-collapse: collapse; }
+#run-stats td { padding: 3px 0; }
+#run-stats td:last-child { text-align: right; color: #f0c040; }
+
 #collectie-btn {
   display: block;
   margin: 8px auto 0;

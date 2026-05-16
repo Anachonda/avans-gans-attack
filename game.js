@@ -271,6 +271,7 @@ const elTimer          = document.getElementById('timer');
 const overlay          = document.getElementById('overlay');
 const overlayTitle     = document.getElementById('overlay-title');
 const overlayMsg       = document.getElementById('overlay-message');
+const runStats         = document.getElementById('run-stats');
 const overlayBtn       = document.getElementById('overlay-btn');
 const levelPanel       = document.getElementById('level-up-panel');
 const waveCompleteTitle = document.getElementById('wave-complete-title');
@@ -2439,7 +2440,16 @@ function endGame() {
   updateFeatherDisplay();
 
   overlayTitle.textContent = 'Game Over';
-  overlayMsg.textContent   = `Je overleefde ${Math.floor(elapsed)}s en haalde wave ${wave}! +${meta.run_feathers} 🪶 (totaal: ${meta.feathers})`;
+  overlayMsg.textContent   = '';
+  const weaponLabels = Object.keys(player.weapons).map(k => WEAPON_DEFS[k].label).join(', ');
+  runStats.innerHTML = `<table>
+    <tr><td>Wave bereikt</td><td>${wave}</td></tr>
+    <tr><td>Ganzen verslagen</td><td>${meta.run_kills}</td></tr>
+    <tr><td>Tijd overleefd</td><td>${Math.floor(elapsed)}s</td></tr>
+    <tr><td>Veertjes verdiend</td><td>+${meta.run_feathers} 🪶</td></tr>
+    <tr><td>Wapens</td><td>${weaponLabels}</td></tr>
+  </table>`;
+  runStats.classList.remove('hidden');
   overlayBtn.textContent   = 'Opnieuw spelen';
   updateHighscoreBox();
   overlay.classList.remove('hidden');
@@ -2539,6 +2549,7 @@ function goToMainMenu() {
   pausePanel.classList.add('hidden');
   pauseBtn.classList.add('hidden');
   overlayMainMenuBtn.classList.add('hidden');
+  runStats.classList.add('hidden');
   overlayTitle.textContent = 'Avans Gans Attack';
   overlayMsg.innerHTML     = 'Overleef golven van boze ganzen!<br>Beweeg met WASD of de pijltjestoetsen.';
   overlayBtn.textContent   = 'Start';
