@@ -302,6 +302,7 @@ const ENEMY_TYPES = {
   bossGoose:    { hpMult: 4,   speedMult: 1.3,  sizeMult: 2.6,  color: '#8B0000', ignoresObstacles: false },
   splitter:     { hpMult: 2.0, speedMult: 0.75, sizeMult: 1.4,  color: '#e67e22', ignoresObstacles: false },
   splitterSmall:{ hpMult: 0.6, speedMult: 1.6,  sizeMult: 0.55, color: '#f1c40f', ignoresObstacles: false },
+  zwerm:        { hpMult: 0.3, speedMult: 2.2,  sizeMult: 0.4,  color: '#e74c3c', ignoresObstacles: false },
 };
 
 // ─── Weapon definitions ───────────────────────────────────────────────────────
@@ -657,9 +658,10 @@ function spawnEnemiesForWave(waveNum) {
     }
   } else {
     for (let i = 0; i < waveNum + 2; i++) {
-      const typePool = ['normal', ...(waveNum >= 2 ? ['tank'] : []), ...(waveNum >= 3 ? ['flyer'] : []), ...(waveNum >= 7 ? ['splitter'] : [])];
+      const typePool = ['normal', ...(waveNum >= 2 ? ['tank'] : []), ...(waveNum >= 3 ? ['flyer'] : []), ...(waveNum >= 7 ? ['splitter'] : []), ...(waveNum >= 15 ? ['zwerm'] : [])];
       const type = typePool[Math.floor(Math.random() * typePool.length)];
       spawnOneEnemy(waveNum, type);
+      if (type === 'zwerm') { spawnOneEnemy(waveNum, 'zwerm'); spawnOneEnemy(waveNum, 'zwerm'); }
     }
   }
 }
@@ -1732,6 +1734,13 @@ function drawGoose(e) {
     ctx.strokeStyle = 'rgba(255,255,255,0.7)';
     ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.moveTo(-r * 0.5, 0); ctx.lineTo(r * 0.5, 0); ctx.stroke();
+  }
+  if (type === 'zwerm') {
+    ctx.strokeStyle = 'rgba(231,76,60,0.5)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(-r*0.5, -r*0.3); ctx.lineTo(-r*1.3, -r*0.3); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-r*0.3,  0);      ctx.lineTo(-r*1.5,  0);      ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(-r*0.5,  r*0.3);  ctx.lineTo(-r*1.3,  r*0.3); ctx.stroke();
   }
   if (type === 'tank') {
     ctx.strokeStyle = 'rgba(255,200,0,0.6)';
