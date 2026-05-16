@@ -657,7 +657,7 @@ function spawnEnemiesForWave(waveNum) {
     }
   } else {
     for (let i = 0; i < waveNum + 2; i++) {
-      const typePool = ['normal', ...(waveNum >= 2 ? ['tank'] : []), ...(waveNum >= 3 ? ['flyer'] : []), ...(waveNum >= 4 ? ['splitter'] : [])];
+      const typePool = ['normal', ...(waveNum >= 2 ? ['tank'] : []), ...(waveNum >= 3 ? ['flyer'] : []), ...(waveNum >= 7 ? ['splitter'] : [])];
       const type = typePool[Math.floor(Math.random() * typePool.length)];
       spawnOneEnemy(waveNum, type);
     }
