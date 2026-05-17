@@ -47,12 +47,25 @@ Stats (schade, cooldown, bereik etc.) staan als arrays in `WEAPON_DEFS`.
 | **Paraplu** | Melee boogzwaai richting dichtstbijzijnde vijand | Level 5: dubbele zwaai |
 | **Boekenworp** | Snel projectiel rechtdoor | Level 3+: doorboorend |
 | **Passer** | 360° melee rondzwaai om speler | Vaste interval |
-| **Gum** | Bouncend projectiel | Level 2+: wand-bounces |
+| **Gum** | Bouncend projectiel | Level 2+: wand-bounces (meer per level) |
 | **Thermosbeker** | Projectiel dat vijanden vertraagt | Level 4+: splash-effect |
 | **Liniaal** | Flitsende lijnstoot richting dichtstbijzijnde vijand | Hogere schade per treffer |
 | **Rugzak** | Gooi-projectiel met splash-explosie | Groeiende splashstraal per level |
+| **Kauwgom** | Legt mijnen neer op de grond | Gans die eroverheen loopt: schade + vertraging; mijn vervaagt en verdwijnt na verloop van tijd |
 
 Wapens vuren automatisch op basis van cooldowns. Richting: altijd naar dichtstbijzijnde vijand.
+
+---
+
+## Evoluties
+
+Verschijnen gegarandeerd als eerste kaart wanneer aan de vereiste is voldaan. Eenmalig, niet verder te levelen. De basiswapens blijven wel upgradeable — evolutie-schade schaalt mee.
+
+| Naam | Vereiste wapens | Effect |
+|---|---|---|
+| **☕ Koffiestroop** | Kauwgom + Thermos | Mijnen worden reusachtige koffievlekken: vaste stats (35 dmg, 90px straal, 8s vertraging, 25s levensduur); kauwgom-level heeft geen effect meer |
+| **🎒 Boekentas** | Boek + Rugzak | Elk boek-treffer veroorzaakt een mini-explosie op het raakpunt: volle boek-schade aan alle ganzen in 55px straal |
+| **🌀 Stormparaplu** | Paraplu + Passer | Na elke passer-spin schieten 6 paraplu-messen in alle richtingen (360°); bladschade = paraplu.dmg[level] |
 
 ---
 

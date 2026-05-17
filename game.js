@@ -59,6 +59,11 @@ const CONFIG = {
 // ─── Sound & Highscore ───────────────────────────────────────────────────────
 let soundEnabled = true;
 let DEBUG = false;
+// HUD cache — alleen schrijven naar DOM als waarde verandert
+let _hudHp = -1, _hudWave = -1, _hudTimer = -1;
+// Debug timing
+let _dbgUpdateMs = 0, _dbgRenderMs = 0;
+const _fpsRing = new Float32Array(30); let _fpsIdx = 0;
 
 function loadHighscore() {
   return {
@@ -256,7 +261,7 @@ function resizeCanvas() {
   // Stel interne canvasresolutie in op fysieke pixels (HiDPI-scherpte)
   const rect = canvas.getBoundingClientRect();
   if (!rect.width || !rect.height) return;
-  const dpr = window.devicePixelRatio || 1;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
   canvas.width  = Math.round(rect.width  * dpr);
   canvas.height = Math.round(rect.height * dpr);
 }
@@ -1504,14 +1509,13 @@ function update(dt) {
         spawnParticles(e.x, e.y, '#8B2500', 4);
         killed = damageEnemy(i, p.dmg);
         if (player.boekentas) {
-          const bSplashR2 = 40 * 40;
-          const bSplashDmg = Math.max(1, Math.floor(p.dmg / 2));
+          const bSplashR2 = 55 * 55;
           for (let k = enemies.length - 1; k >= 0; k--) {
             if (k === i) continue;
             const bkdx = enemies[k].x - p.x, bkdy = enemies[k].y - p.y;
-            if (bkdx*bkdx + bkdy*bkdy < bSplashR2) damageEnemy(k, bSplashDmg);
+            if (bkdx*bkdx + bkdy*bkdy < bSplashR2) damageEnemy(k, p.dmg);
           }
-          spawnParticles(p.x, p.y, '#8B4513', 6);
+          spawnParticles(p.x, p.y, '#FF8C00', 20);
         }
         if (killed) break;
       }
@@ -2417,29 +2421,34 @@ function draw() {
     ctx.globalAlpha = 1; ctx.textAlign = 'left';
   }
 
-  elHP.textContent    = player.hp;
-  elWave.textContent  = wave;
-  elTimer.textContent = Math.floor(elapsed);
+  const _t = Math.floor(elapsed);
+  if (player.hp !== _hudHp)  { elHP.textContent    = player.hp; _hudHp    = player.hp; }
+  if (wave      !== _hudWave) { elWave.textContent  = wave;      _hudWave  = wave; }
+  if (_t        !== _hudTimer){ elTimer.textContent = _t;        _hudTimer = _t; }
 
   // ── Debug overlay (screen space) ──
   if (DEBUG) {
   const bossProjs = bossProjectileCount;
+  let fpsSum = 0;
+  for (let fi = 0; fi < _fpsRing.length; fi++) fpsSum += _fpsRing[fi];
+  const fps = fpsSum > 0 ? Math.round(_fpsRing.length / fpsSum) : 0;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
   ctx.save();
   ctx.font = '11px monospace';
   ctx.textAlign = 'left';
   const dbgLines = [
+    `fps:       ${fps}  upd:${_dbgUpdateMs}ms  rnd:${_dbgRenderMs}ms`,
+    `dpr:       ${dpr}  canvas:${canvas.width}×${canvas.height}`,
     `pos:       x=${Math.round(player.x)}  y=${Math.round(player.y)}`,
-    `wave:      ${wave}`,
-    `enemies:   ${enemies.length}`,
+    `enemies:   ${enemies.length}  mines:${mines.length}`,
     `proj:      ${projectiles.length - bossProjs} speler / ${bossProjs} boss`,
-    `pickups:   ${pickups.length}`,
     `effects:   ${particles.length} particles / ${deathEffects.length} death`,
   ];
   dbgLines.forEach((line, idx) => {
     ctx.fillStyle = 'rgba(0,0,0,0.55)';
-    ctx.fillRect(6, CANVAS_H - 90 + idx * 15, 230, 14);
+    ctx.fillRect(6, CANVAS_H - 93 + idx * 15, 270, 14);
     ctx.fillStyle = '#00ff88';
-    ctx.fillText(line, 8, CANVAS_H - 79 + idx * 15);
+    ctx.fillText(line, 8, CANVAS_H - 82 + idx * 15);
   });
   ctx.restore();
   } // end DEBUG
@@ -2453,9 +2462,13 @@ function loop(ts) {
   const dt = Math.min((ts - lastTime) / 1000, 0.05);
   lastTime = ts;
   try {
+    let t0, t1;
+    if (DEBUG) { _fpsRing[_fpsIdx++ % _fpsRing.length] = dt; t0 = performance.now(); }
     if (hitStop > 0) { hitStop--; } else { update(dt); }
     if (screenShake > 0) screenShake = Math.max(0, screenShake - dt);
+    if (DEBUG) { t1 = performance.now(); }
     draw();
+    if (DEBUG) { _dbgUpdateMs = +(t1 - t0).toFixed(1); _dbgRenderMs = +(performance.now() - t1).toFixed(1); }
   } catch (err) {
     console.error('Game loop exception:', err);
   }
