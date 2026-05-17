@@ -4,7 +4,7 @@
 
 | Bestand | Verantwoordelijkheid |
 |---|---|
-| `game.js` | Alle spellogica (~2100 regels) |
+| `game.js` | Alle spellogica (~2700 regels) |
 | `index.html` | Canvas, HUD-DOM, overlays, d-pad HTML |
 | `style.css` | Layout, overlays, responsive/mobile |
 | `manifest.json` | PWA-config |
@@ -39,7 +39,9 @@ idle → playing ↔ paused
 function loop(ts) {
   if (state !== 'playing') return;   // stopt bij pauze/levelup/dead
   const dt = Math.min((ts - lastTime) / 1000, 0.05);
-  update(dt);
+  // (DEBUG: meet update- en render-tijd apart)
+  if (hitStop > 0) { hitStop--; } else { update(dt); }
+  if (screenShake > 0) screenShake = Math.max(0, screenShake - dt);
   draw();
   requestAnimationFrame(loop);
 }
@@ -52,7 +54,7 @@ Loop wordt handmatig herstart na pauze, upgrade-keuze en `startGame()`.
 ## Wereld & camera
 
 - **Wereld**: 1600×1200 px logische ruimte
-- **Canvas**: virtueel 800×600, geschaald via `devicePixelRatio` naar fysieke pixels
+- **Canvas**: virtueel 800×600, geschaald via `devicePixelRatio` (gecapped op 2) naar fysieke pixels
 - **Camera**: `ctx.translate(-camera.x, -camera.y)` — volgt speler met clamp op wereldgrenzen
 - **Obstakels**: hardcoded AABB-rechthoeken (`obstacles[]`, `POND_OBSTACLES[]`)
 - **Kaart**: `speelveldfinal.png` als achtergrond op wereldcoördinaten
@@ -84,39 +86,65 @@ Startwapen is willekeurig bij elke reset.
 | Wapen | Type | Mechanisme |
 |---|---|---|
 | `paraplu` | Melee swing | Boog richting dichtstbijzijnde vijand |
-| `boek` | Projectiel | Recht, optioneel doorboorend |
+| `boek` | Projectiel | Recht, optioneel doorboorend (level 3+) |
 | `passer` | Melee spin | 360° rondom speler |
-| `gum` | Projectiel | Bouncing, wand-reflectie |
-| `thermos` | Projectiel | Vertraagt vijanden, optioneel splash |
+| `gum` | Projectiel | Bouncing, wand-reflectie (meer bounces per level) |
+| `thermos` | Projectiel | Vertraagt vijanden, optioneel splash (level 4+) |
 | `liniaal` | Melee flash | Lijnflits richting dichtstbijzijnde vijand |
-| `rugzak` | Projectiel | Gooi met splash-explosie |
+| `rugzak` | Projectiel | Gooi met splash-explosie (groeiende straal) |
+| `kauwgom` | Mijn | Legt mijn neer op grond; schade + vertraging bij contact |
 
-Elk wapen: max 5 levels. `player.weapons[id]` = level of undefined.  
+Elk wapen: max 5 levels. `player.weapons[id]` = level (1-based) of undefined.  
 Cooldown in `player.cooldowns[id]`, afgetrokken elke `dt` in `update()`.
+
+**Evoluties** — Eenmalige upgrades die twee wapens combineren, opgeslagen als booleans op `player`:
+
+| Vlag | Vereiste | Effect |
+|---|---|---|
+| `player.koffiestroop` | kauwgom + thermos | Mijnen → koffievlekken (vaste hoge stats) |
+| `player.boekentas` | boek + rugzak | Boek-treffer → mini-explosie 55px |
+| `player.stormparaplu` | paraplu + passer | Na passer-spin → 6 messen in 360° |
 
 ---
 
 ## Vijandensysteem
 
 ```js
-const ENEMY_TYPES = { normal, tank, flyer, bossGoose }
+const ENEMY_TYPES = {
+  normal, tank, flyer, bossGoose,
+  splitter, splitterSmall,   // splitter splitst bij dood
+  zwerm,                     // snel, klein, in drietallen
+  supertank, supertankShard  // supertank versplintert bij dood
+}
 // hpMult, speedMult, sizeMult, color, ignoresObstacles
 ```
 
-- Alle vijanden zijn "Ganzen", getekend via `drawGoose()` (offscreen sprite-cache: `_gooseSprites`)
+| Type | Unlocked | Bijzonderheid |
+|---|---|---|
+| `normal` | wave 1 | — |
+| `tank` | wave 2 | Langzaam, veel HP, goudkleurig |
+| `flyer` | wave 3 | Negeert obstakels, paars |
+| `bossGoose` | wave 5, 10… | Schiet projectielen, dropt hartje |
+| `splitter` | wave 7 | Splitst in twee `splitterSmall` bij dood |
+| `zwerm` | wave 15 | Extreem snel, klein, spawnt in drietallen |
+| `supertank` | wave 21 | Blauw, groot; berstoring → kettingreactie van `supertankShard` |
+
+- Alle vijanden getekend via `drawGoose()` (offscreen sprite-cache: `_gooseSprites`)
 - Spawn: vaste punten in vijver (`ENEMY_SPAWN_POINTS`), minimale afstand tot speler
 - **Elke vijfde wave** = baas-wave (bossGoose + extra vijanden)
-- **Separatie**: spatial grid (64px cellen) duwt ganzen uit elkaar; O(n) per frame
+- **Separatie**: spatial grid (`_sepGrid`, 64px cellen) duwt ganzen uit elkaar; O(n) per frame
 - `damageEnemy(i, dmg)` → enige entry-point voor schade → knockback, particles, `killEnemy(i)`
 - `killEnemy` → geluid, death-effect, optioneel hartje pickup, verwijder via `swapRemove`
+- Eerste verschijning van elk nieuw type: aankondiging via `NEW_ENEMY_ANNOUNCE`
 
 ---
 
 ## Upgrades
 
-Na elke wave: `buildUpgradePool()` → 3 willekeurige kaarten uit:
+Na elke wave: `buildUpgradePool()` → 3–4 willekeurige kaarten uit:
 - Wapen ontgrendelen (level 1) of level-up (max 5)
 - Stat-upgrades: Max HP +15, snelheid ×1.05, diagonaal-bonus, herstel 40 HP
+- Evolutie (gegarandeerd eerste kaart als twee vereiste wapens aanwezig en evolutie nog niet actief)
 
 Keuze toepast via `card.addEventListener('click', ...)` → `state = 'playing'` → loop herstart.
 
@@ -134,16 +162,17 @@ Alles cirkel-gebaseerd:
 ## Rendering (`draw()`)
 
 Volgorde:
-1. `ctx.scale(dpr, dpr)` + cameravertaling
+1. `ctx.scale(scaleX, scaleY)` (canvas/800×600) + cameravertaling
 2. Kaartafbeelding
 3. Debris (blikjes, papierprop, bananenschil)
-4. Particles (cirkel + globalAlpha fade)
-5. Vijanden (`drawGoose` met offscreen cache)
-6. Projectielen, melee-effecten (paraplu/passer/liniaal)
-7. Pickups (hartjes)
-8. Speler (`drawStudent`)
-9. `ctx.restore()` → screen-space: wavebericht, HUD-tekst
-10. Debug-overlay (obstakels, spawnpunten, stats)
+4. Death-effects + particles (cirkel + globalAlpha fade)
+5. Mijnen (`drawMines`)
+6. Vijanden (`drawGoose` met offscreen cache)
+7. Projectielen, melee-effecten (paraplu/passer/liniaal)
+8. Pickups (hartjes)
+9. Speler (`drawStudent`)
+10. `ctx.restore()` → screen-space: wavebericht, HUD DOM-updates (getrotteld)
+11. Debug-overlay: positie, entities, FPS, update-ms, render-ms, DPR (toggle via debug-knop)
 
 ---
 

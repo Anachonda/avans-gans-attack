@@ -6,16 +6,22 @@ Overzicht van alle huidige gameplay-systemen.
 
 ## Enemies
 
-Vier typen, allemaal als gans getekend:
+Negen typen, allemaal als gans getekend:
 
-| Type | HP | Snelheid | Formaat | Bijzonderheid |
-|---|---|---|---|---|
-| `normal` | ×1.0 | ×1.0 | ×1.0 | — |
-| `tank` | ×3.5 | ×0.6 | ×1.5 | Goud getint |
-| `flyer` | ×0.7 | ×1.4 | ×0.85 | Negeert obstakels, paars |
-| `bossGoose` | ×4.0 | ×1.3 | ×2.6 | Schiet projectielen, dropt hartje bij dood |
+| Type | HP | Snelheid | Formaat | Unlocked | Bijzonderheid |
+|---|---|---|---|---|---|
+| `normal` | ×1.0 | ×1.0 | ×1.0 | wave 1 | — |
+| `tank` | ×3.5 | ×0.6 | ×1.5 | wave 2 | Goud getint, pantserring vervaagt met HP |
+| `flyer` | ×0.7 | ×1.4 | ×0.85 | wave 3 | Negeert obstakels, paars |
+| `bossGoose` | ×4.0 | ×1.3 | ×2.6 | wave 5, 10… | Schiet projectielen, dropt hartje bij dood |
+| `splitter` | ×2.0 | ×0.75 | ×1.4 | wave 7 | Oranje; splitst in twee `splitterSmall` bij dood |
+| `splitterSmall` | ×0.6 | ×1.6 | ×0.55 | — | Geel; spawn van splitter-dood |
+| `zwerm` | ×0.3 | ×2.2 | ×0.4 | wave 15 | Rood, extreem snel, spawnt altijd in drietallen |
+| `supertank` | ×4.0 | ×0.38 | ×2.3 | wave 21 | Blauw; kettingreactie bij dood → meerdere `supertankShard` |
+| `supertankShard` | ×2.8 | ×1.3 | ×1.1 | — | Goud; spawn van supertank-dood |
 
 - HP en snelheid schalen mee met het wave-nummer
+- Eerste verschijning van elk nieuw type: aankondiging in beeld
 - Ganzen duwen elkaar weg via een spatial grid (separatie-systeem)
 - Knockback bij treffer
 - Spawnen uitsluitend vanuit de vijver (linksonder op de kaart)
@@ -31,9 +37,12 @@ Vier typen, allemaal als gans getekend:
 
 **Vijandtypes per wave:**
 - Wave 1: alleen normal
-- Wave 2+: normal + tank
-- Wave 3+: normal + tank + flyer
+- Wave 2+: + tank
+- Wave 3+: + flyer
 - Wave 5, 10, 15…: bossGoose-wave
+- Wave 7+: + splitter
+- Wave 15+: + zwerm (spawnt altijd in drietallen)
+- Wave 21+: + supertank
 
 ---
 

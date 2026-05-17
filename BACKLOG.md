@@ -10,17 +10,17 @@ Voorstellen uit de UX-adviessessie, gerangschikt op impact.
 
 - [ ] **Run-samenvatting na game-over** — Toon na de dood een scherm met stats van de run: ganzen gedood, wapens gebruikt, golven overleefd, veertjes verdiend. Geeft gevoel van prestatie en moedigt een nieuwe poging aan. **← volgende**
 
-- [ ] **Wapenevolutie / synergieën** — Geheime combinaties: twee wapens samen worden een evolved weapon (bijv. thermos + boek = ijsboek dat doorboort én vertraagt). Geeft replayability en beloont experimenteren. Hierbij ook: passer herinschakelen en effectiever maken als basis voor een combinatiewapen.
+- [x] **Wapenevolutie / synergieën** — Drie evoluties geïmplementeerd: ☕ Koffiestroop (kauwgom+thermos), 🎒 Boekentas (boek+rugzak), 🌀 Stormparaplu (paraplu+passer). Verschijnen gegarandeerd als eerste upgradekaart. *(geïmplementeerd)*
 
 ---
 
 ## Middelhoog impact
 
-- [ ] **Game feel bij treffers** — Screen shake en/of hit stop (1–2 frames pauzeren) bij harde treffers. Maakt wapens fysiek bevredigender.
+- [x] **Game feel bij treffers** — Hit stop (1–2 frames) en screen shake geïmplementeerd bij harde treffers. *(geïmplementeerd)*
 
-- [ ] **Vijandenleesbaarheid** — Silhouet-variatie per type: tank breder, flyer met vleugels. Nu zijn alle vier typen hetzelfde `drawGoose()`-model, wat op hogere waves één grote visuele soep wordt.
+- [ ] **Vijandenleesbaarheid** — Silhouet-variatie per type: nieuwe typen (splitter, zwerm, supertank) hebben andere kleur en formaat, maar `drawGoose()` is voor alle typen hetzelfde model. Vleugels voor flyer, bredere romp voor tank zou leesbaarheid verder verbeteren.
 
-- [ ] **Wave-escalatie plateau** — De vierkantswortelformule voor ganzensnelheid vlakt sterk af na wave ~15. Extra escalatielaag nodig: nieuw vijandtype, kaartgebeurtenis of mechanic die late-game fris houdt.
+- [x] **Wave-escalatie plateau** — Opgelost met vijf nieuwe vijandtypen: splitter (wave 7), zwerm (wave 15), supertank (wave 21) + bijbehorende spawn-fragmenten. *(geïmplementeerd)*
 
 ---
 

@@ -18,34 +18,37 @@ No build step required. Open `index.html` directly in any modern browser. There 
 
 ## Architecture
 
-This is a single-file vanilla JavaScript game (`game.js`) rendered on an HTML5 Canvas (800×600). The entire game logic lives in `game.js` (~816 lines); `index.html` provides the canvas and UI overlays; `style.css` handles layout and the upgrade card UI.
+This is a single-file vanilla JavaScript game (`game.js`) rendered on an HTML5 Canvas (800×600). The entire game logic lives in `game.js` (~2700 lines); `index.html` provides the canvas and UI overlays; `style.css` handles layout and the upgrade card UI.
 
 ### Game State Machine
 
-A global `state` variable drives the game loop: `'idle'` → `'playing'` ↔ `'levelup'` → `'dead'` → `'idle'`. The `requestAnimationFrame` loop skips updates when not in `'playing'` state.
+A global `state` variable drives the game loop: `'idle'` → `'playing'` ↔ `'paused'` / `'levelup'` → `'dead'` → `'idle'`. The `requestAnimationFrame` loop exits immediately when `state !== 'playing'`.
 
 ### Core Systems
 
-**Weapon system** — `WEAPON_DEFS` is the single source of truth. Each weapon entry contains parallel arrays indexed by level (0–4): damage, cooldown, reach, etc. Weapons are stored as slots on the `player` object; each slot tracks `active`, `level`, and the current cooldown in `player.cooldowns`. Adding or rebalancing a weapon means editing `WEAPON_DEFS` and its corresponding update/draw functions.
+**Weapon system** — `WEAPON_DEFS` is the single source of truth. Each entry has parallel arrays indexed by `level - 1` (0–4): damage, cooldown, reach, etc. `player.weapons[id]` holds the current level (1-based); `player.cooldowns[id]` tracks the firing timer. Adding a weapon means editing `WEAPON_DEFS` + update/draw function + `WEAPON_SFX`.
 
-**Wave/upgrade loop** — On wave clear, `showLevelUp()` picks 3 random options from a pool of weapon unlocks, weapon level-ups, and stat boosts (HP, speed, heal). Upgrading a weapon either sets `active = true` (first unlock) or increments `level`.
+**Evoluties** — Three weapon combinations unlock a one-time evolution: Koffiestroop (kauwgom+thermos), Boekentas (boek+rugzak), Stormparaplu (paraplu+passer). Stored as boolean flags on `player` (`player.koffiestroop`, etc.).
 
-**Enemy scaling** — Enemy tier is derived from wave number; tier controls HP and speed via multiplier arrays. All enemies are "Geese" drawn procedurally with `drawGoose()`.
+**Wave/upgrade loop** — On wave clear, `buildUpgradePool()` → `showLevelUp()` shows 3–4 cards. Pool includes weapon unlocks, weapon level-ups, stat boosts, and evolutions (always first if available).
 
-**Collision** — Everything is circle-distance based. `damageEnemy(enemy, dmg)` is the single entry point for dealing damage and spawning hit particles. Player damage uses invincibility frames (`player.iframes`, 0.6 s).
+**Enemy scaling** — Nine enemy types in `ENEMY_TYPES`. HP and speed scale with wave number via a square-root formula. New types unlock at fixed wave thresholds.
 
-**Projectiles & particles** — Both live in flat arrays (`projectiles[]`, `particles[]`). Each frame they are updated and any that are expired or out-of-bounds are spliced out.
+**Collision** — Everything is circle-distance based. `damageEnemy(i, dmg)` is the single entry point for damage. Player damage uses invincibility frames (`player.invincible`, configurable via `CONFIG.playerIframes`).
+
+**Projectiles, particles & mines** — Flat arrays: `projectiles[]`, `particles[]`, `mines[]`. Each frame: update, then `swapRemove` expired entries.
 
 ### Key Helper Functions
 
 | Function | Purpose |
 |---|---|
 | `getNearestEnemy()` | Returns closest enemy to player |
-| `damageEnemy(e, dmg)` | Applies damage, triggers death/particles |
-| `spawnParticles(x, y, ...)` | Creates visual feedback particles |
+| `damageEnemy(i, dmg)` | Applies damage by index, triggers death/particles |
+| `spawnParticles(x, y, color, count)` | Visual feedback particles |
 | `startGame()` / `endGame()` | State transitions in/out of play |
-| `showLevelUp()` | Builds upgrade choices and pauses game |
+| `showLevelUp()` | Builds upgrade cards and pauses game |
+| `swapRemove(arr, i)` | O(1) removal from flat arrays |
 
 ### Dutch Terminology in Code
 
-The game is a Dutch student project. Weapon names in code match Dutch school supplies: `parasol`, `boek` (book), `passer` (compass), `gum` (eraser), `thermos`, `liniaal` (ruler), `rugzak` (backpack). UI strings are also in Dutch.
+The game is a Dutch student project. Weapon names in code match Dutch school supplies: `paraplu` (umbrella), `boek` (book), `passer` (compass), `gum` (eraser), `thermos`, `liniaal` (ruler), `rugzak` (backpack), `kauwgom` (chewing gum). UI strings are also in Dutch.
