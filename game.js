@@ -228,7 +228,7 @@ function jitter(t) { return t * (0.98 + Math.random() * 0.04); }
 
 // ─── Setup ───────────────────────────────────────────────────────────────────
 const canvas = document.getElementById('game-canvas');
-const ctx    = canvas.getContext('2d');
+const ctx    = canvas.getContext('2d', { alpha: false });
 canvas.width  = CANVAS_W;
 canvas.height = CANVAS_H;
 
@@ -258,10 +258,13 @@ function resizeCanvas() {
     uiEl.style.height = '';
   }
 
-  // Stel interne canvasresolutie in op fysieke pixels (HiDPI-scherpte)
+  // Stel interne canvasresolutie in op fysieke pixels (HiDPI-scherpte).
+  // Op mobiel capt op 1.5 (i.p.v. 2) om GPU-compositing te halveren zonder
+  // zichtbaar kwaliteitsverlies bij een snel bewegend spel.
   const rect = canvas.getBoundingClientRect();
   if (!rect.width || !rect.height) return;
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const isMobile = 'ontouchstart' in window;
+  const dpr = Math.min(window.devicePixelRatio || 1, isMobile ? 1.5 : 2);
   canvas.width  = Math.round(rect.width  * dpr);
   canvas.height = Math.round(rect.height * dpr);
 }
@@ -2432,7 +2435,8 @@ function draw() {
   let fpsSum = 0;
   for (let fi = 0; fi < _fpsRing.length; fi++) fpsSum += _fpsRing[fi];
   const fps = fpsSum > 0 ? Math.round(_fpsRing.length / fpsSum) : 0;
-  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const isMobile = 'ontouchstart' in window;
+  const dpr = Math.min(window.devicePixelRatio || 1, isMobile ? 1.5 : 2);
   ctx.save();
   ctx.font = '11px monospace';
   ctx.textAlign = 'left';
