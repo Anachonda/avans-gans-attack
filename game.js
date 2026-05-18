@@ -64,7 +64,6 @@ let _hudHp = -1, _hudWave = -1, _hudTimer = -1;
 // Debug timing
 let _dbgUpdateMs = 0, _dbgRenderMs = 0;
 const _fpsRing = new Float32Array(30); let _fpsIdx = 0;
-let _lowFpsMode = false, _frameSkip = false;
 
 function loadHighscore() {
   return {
@@ -270,8 +269,8 @@ function resizeCanvas() {
   canvas.height = Math.round(rect.height * dpr);
 }
 
-window.addEventListener('resize', () => { resizeCanvas(); buildBgCache(); });
-window.addEventListener('orientationchange', () => setTimeout(() => { resizeCanvas(); buildBgCache(); }, 150));
+window.addEventListener('resize', resizeCanvas);
+window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 150));
 resizeCanvas();
 
 const elHP             = document.getElementById('hp');
@@ -440,25 +439,6 @@ let hitStop     = 0;
 // ─── Map image ────────────────────────────────────────────────────────────────
 const mapImage = new Image();
 mapImage.src = 'speelveldfinal.png';
-
-let _bgCache = null;
-
-function buildBgCache() {
-  if (!mapImage.complete || !mapImage.naturalWidth || !canvas.width || !canvas.height) return;
-  const scaleX = canvas.width  / CANVAS_W;
-  const scaleY = canvas.height / CANVAS_H;
-  const w = Math.round(CONFIG.mapWidth  * scaleX);
-  const h = Math.round(CONFIG.mapHeight * scaleY);
-  if (w * h > 4_000_000) { _bgCache = null; return; }  // te groot voor lageheugen-apparaten
-  if (_bgCache && _bgCache.width === w && _bgCache.height === h) return;
-  _bgCache = new OffscreenCanvas(w, h);
-  const bc = _bgCache.getContext('2d');
-  bc.drawImage(mapImage, 0, 0, w, h);
-  bc.fillStyle = '#b05820';
-  bc.fillRect(Math.round(1510 * scaleX), Math.round(1148 * scaleY),
-              Math.ceil(90 * scaleX),   Math.ceil(52  * scaleY));
-}
-mapImage.onload = buildBgCache;
 
 // Obstakels in 1600×1200 wereldruimte — coördinaten ingemeten via debug-overlay
 const obstacles = [
@@ -2077,28 +2057,14 @@ function drawProjectiles() {
 
 // ─── Background ──────────────────────────────────────────────────────────────
 function drawBackground() {
-  if (_bgCache) {
-    // Pre-geschaalde cache aanwezig: kopieer alleen het zichtbare cameravenster
-    // (1:1 pixelblit, geen GPU-schaling nodig).
-    // Wordt aangeroepen na ctx.translate(-camera.x, -camera.y), dus world(camera) = screen(0,0).
-    const scaleX = canvas.width  / CANVAS_W;
-    const scaleY = canvas.height / CANVAS_H;
-    ctx.drawImage(
-      _bgCache,
-      Math.round(camera.x * scaleX), Math.round(camera.y * scaleY),
-      canvas.width, canvas.height,
-      camera.x, camera.y,
-      CANVAS_W, CANVAS_H
-    );
-    return;
-  }
-  // Fallback: originele draw (ook als cache nog niet klaar is)
   if (mapImage.complete && mapImage.naturalWidth > 0) {
     ctx.drawImage(mapImage, 0, 0, CONFIG.mapWidth, CONFIG.mapHeight);
+    // Dek het Gemini-watermerk rechtsonder af met gebouwkleur
     ctx.fillStyle = '#b05820';
     ctx.fillRect(1510, 1148, 90, 52);
     return;
   }
+  // Fallback zolang afbeelding nog laadt
   ctx.fillStyle = '#52b03a';
   ctx.fillRect(0, 0, CONFIG.mapWidth, CONFIG.mapHeight);
 }
@@ -2485,7 +2451,7 @@ function draw() {
   ctx.textAlign = 'left';
   const dbgLines = [
     `fps:       ${fps}  upd:${_dbgUpdateMs}ms  rnd:${_dbgRenderMs}ms`,
-    `dpr:       ${dpr}  canvas:${canvas.width}×${canvas.height}${_lowFpsMode ? '  [30fps]' : ''}`,
+    `dpr:       ${dpr}  canvas:${canvas.width}×${canvas.height}`,
     `pos:       x=${Math.round(player.x)}  y=${Math.round(player.y)}`,
     `enemies:   ${enemies.length}  mines:${mines.length}`,
     `proj:      ${projectiles.length - bossProjs} speler / ${bossProjs} boss`,
@@ -2508,29 +2474,9 @@ function loop(ts) {
   if (state !== 'playing') return;
   const dt = Math.min((ts - lastTime) / 1000, 0.05);
   lastTime = ts;
-
-  // FPS-ring altijd vullen (ook zonder DEBUG) voor adaptieve throttle
-  _fpsRing[_fpsIdx % _fpsRing.length] = dt;
-  _fpsIdx++;
-
-  // Controleer elke 30 frames of we naar 30fps-modus moeten schakelen
-  if (_fpsIdx % 30 === 0) {
-    let sum = 0;
-    for (let i = 0; i < _fpsRing.length; i++) sum += _fpsRing[i];
-    const avg = _fpsRing.length / sum;
-    if (!_lowFpsMode && avg < 50) _lowFpsMode = true;
-    else if (_lowFpsMode && avg > 55) _lowFpsMode = false;
-  }
-
-  // Sla elke andere frame over in low-fps modus: stabiele 30fps > stotterende ~47fps
-  if (_lowFpsMode) {
-    _frameSkip = !_frameSkip;
-    if (_frameSkip) { requestAnimationFrame(loop); return; }
-  }
-
   try {
     let t0, t1;
-    if (DEBUG) { t0 = performance.now(); }
+    if (DEBUG) { _fpsRing[_fpsIdx++ % _fpsRing.length] = dt; t0 = performance.now(); }
     if (hitStop > 0) { hitStop--; } else { update(dt); }
     if (screenShake > 0) screenShake = Math.max(0, screenShake - dt);
     if (DEBUG) { t1 = performance.now(); }
@@ -2553,7 +2499,6 @@ function launchGame() {
   spawnEnemiesForWave(wave);
   waveMessage = { text: 'Wave 1!', timer: 1.5 };
   lastTime = performance.now();
-  _frameSkip = false;
   pauseBtn.classList.remove('hidden');
   requestAnimationFrame(loop);
 }
