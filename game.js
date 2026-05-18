@@ -229,7 +229,7 @@ function jitter(t) { return t * (0.98 + Math.random() * 0.04); }
 
 // ─── Setup ───────────────────────────────────────────────────────────────────
 const canvas = document.getElementById('game-canvas');
-const ctx    = canvas.getContext('2d', { alpha: false });
+const ctx    = canvas.getContext('2d');
 canvas.width  = CANVAS_W;
 canvas.height = CANVAS_H;
 
@@ -268,11 +268,10 @@ function resizeCanvas() {
   const dpr = Math.min(window.devicePixelRatio || 1, isMobile ? 1.5 : 2);
   canvas.width  = Math.round(rect.width  * dpr);
   canvas.height = Math.round(rect.height * dpr);
-  buildBgCache();
 }
 
-window.addEventListener('resize', resizeCanvas);
-window.addEventListener('orientationchange', () => setTimeout(resizeCanvas, 150));
+window.addEventListener('resize', () => { resizeCanvas(); buildBgCache(); });
+window.addEventListener('orientationchange', () => setTimeout(() => { resizeCanvas(); buildBgCache(); }, 150));
 resizeCanvas();
 
 const elHP             = document.getElementById('hp');
