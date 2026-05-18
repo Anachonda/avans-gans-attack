@@ -2357,10 +2357,19 @@ function draw() {
     ctx.lineWidth = 2.5;
     ctx.beginPath(); ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2); ctx.stroke();
   }
+  // Groepeer op kleur → één fillStyle-switch per kleurgroep i.p.v. per particle
+  const _pBatch = new Map();
   for (const p of particles) {
-    ctx.globalAlpha = p.life / p.maxLife;
-    ctx.fillStyle = p.color;
-    ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI*2); ctx.fill();
+    let g = _pBatch.get(p.color);
+    if (!g) _pBatch.set(p.color, g = []);
+    g.push(p);
+  }
+  for (const [color, group] of _pBatch) {
+    ctx.fillStyle = color;
+    for (const p of group) {
+      ctx.globalAlpha = p.life / p.maxLife;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+    }
   }
   ctx.globalAlpha = 1;
 
